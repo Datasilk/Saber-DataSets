@@ -20,5 +20,11 @@ namespace Saber.Vendors.DataSets
                 return Error("Could not retrieve list of Data Sets" + (!string.IsNullOrEmpty(search) ? " using search \"" + search + "\"." : ""));
             }
         }
+
+        public string GetCreateForm()
+        {
+            if (!CheckSecurity()) { return AccessDenied(); }
+            return Cache.LoadFile("/Vendors/DataSets/create.html");
+        }
     }
 }
