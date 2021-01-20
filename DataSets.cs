@@ -21,10 +21,25 @@ namespace Saber.Vendors.DataSets
             }
         }
 
+        public string GetPermissions()
+        {
+            return (CheckSecurity("create-datasets") ? "1" : "0") + "," +
+                (CheckSecurity("edit-datasets") ? "1" : "0") + "," +
+                (CheckSecurity("delete-datasets") ? "1" : "0") + "," +
+                (CheckSecurity("view-datasets") ? "1" : "0") + "," +
+                (CheckSecurity("add-dataset-data") ? "1" : "0");
+        }
+
         public string GetCreateForm()
         {
-            if (!CheckSecurity()) { return AccessDenied(); }
+            if (!CheckSecurity("create-datasets")) { return AccessDenied(); }
             return Cache.LoadFile("/Vendors/DataSets/create.html");
+        }
+
+        public string Create(string name, string partial)
+        {
+            if (!CheckSecurity("create-datasets")) { return AccessDenied(); }
+            return Success();
         }
     }
 }
