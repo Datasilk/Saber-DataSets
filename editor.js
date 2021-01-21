@@ -11,7 +11,15 @@ S.editor.datasets = {
         show: function () {
             S.ajax.post('Datasets/GetCreateForm', {}, (response) => {
                 S.popup.show('Create a new Data Set', response);
-                $('.popup form').on('submit', S.editor.datasets.submit);
+                $('.popup form').on('submit', S.editor.datasets.add.submit);
+
+                //add event listener for partial view browse button
+                $('.popup .btn-browse').on('click', (e) => {
+                    //show file select popup for partial view selection
+                    S.editor.explorer.select('Select Partial View', 'Content/partials', '.html', (file) => {
+                        $(e.target).parents('.select-partial').first().find('input').val(file.replace('Content/', '').replace('content/', ''));
+                    });
+                });
             });
 
         },
@@ -25,6 +33,7 @@ S.editor.datasets = {
             };
             S.ajax.post('Datasets/Create', data, (response) => {
                 S.popup.hide();
+                //show new data set in a tab
             });
         }
     },
@@ -33,8 +42,34 @@ S.editor.datasets = {
         load: function () {
             //get list of data sets and display in menu
         }
+    },
+
+    records: {
+        show: function (id, label) {
+            var data = {
+                datasetId: id,
+            }
+            if ($('.tab.dataset-' + id + '-section').length == 0) {
+                //create new content section
+                $('.sections').append('<div class="tab dataset-' + id + '-section"><div class="scroller"></div></div>');
+
+                S.editor.tabs.create('Dataset: ' + label, 'dataset-' + id + '-section', {},
+                    () => { //onfocus
+                        $('.tab.dataset-' + id + '-section').removeClass('hide');
+                    },
+                    () => { //onblur 
+                    },
+                    () => { //onsave 
+                    }
+                );
+            }
+        }
     }
 };
+
+
+//create a new top menu item
+S.editor.topmenu.add('datasets', 'Data Sets');
 
 S.ajax.post('Datasets/GetPermissions', {}, (response) => {
     var bools = response.split(',').map(a => a == '1');
@@ -45,9 +80,6 @@ S.ajax.post('Datasets/GetPermissions', {}, (response) => {
     sec.view = bools[3];
     sec.adddata = bools[4];
     S.editor.datasets.security = sec;
-
-    //create a new top menu item
-    S.editor.topmenu.add('datasets', 'Data Sets');
 
     if (sec.create == true) {
         //add menu item to create new data set
@@ -64,13 +96,11 @@ S.ajax.post('Datasets/GetPermissions', {}, (response) => {
         $('.menu-bar .menu-item-datasets .item-dataset-empty').css({ opacity: 0.4 });
         $('.menu-bar .menu-item-datasets .item-dataset-empty .icon').remove();
         $('.menu-bar .menu-item-datasets .item-dataset-empty .text').css({ 'white-space': 'nowrap' });
-        console.log($('.menu-bar .menu-item-datasets .item-dataset-empty .text'));
 
         //get a list of data sets that exist for this website to display in the dropdown menu
-        S.editor.datasets.load();
+        S.editor.datasets.menu.load();
     }
 
     //add icons to the editor
     S.svg.load('/editor/vendors/datasets/icons.svg');
-    }
 });
