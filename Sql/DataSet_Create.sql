@@ -3,12 +3,12 @@
 	@description nvarchar(MAX),
 	@columns XML 
 	/* example:	
-		<keys>
+		<columns>
 			<column name="elementId" datatype="identity(1000,1)"></key>
 			<column name="label" datatype="text" maxlength="64"></key>
 			<column name="description" datatype="text" maxlength="max"></key>
 			<column name="datecreated" datatype="datetime" default="now"></key>
-		</keys>
+		</columns>
 	*/
 AS
 	IF NOT EXISTS(SELECT * FROM DataSets WHERE [label]=@label) BEGIN

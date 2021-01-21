@@ -28,13 +28,14 @@ S.editor.datasets = {
             $('.popup button.apply').hide();
             e.preventDefault();
             var data = {
-                name: $('#dataset_name').val(),
+                label: $('#dataset_name').val(),
                 partial: $('#dataset_partial').val()
             };
             S.ajax.post('Datasets/Create', data, (response) => {
                 S.popup.hide();
+                S.editor.datasets.show(response, data.label);
                 //show new data set in a tab
-            });
+            }, null, true);
         }
     },
 
@@ -45,15 +46,27 @@ S.editor.datasets = {
     },
 
     records: {
-        show: function (id, label) {
-            var data = {
-                datasetId: id,
-            }
+        show: function (id, name) {
+            $('.editor .sections > .tab').addClass('hide');
             if ($('.tab.dataset-' + id + '-section').length == 0) {
                 //create new content section
                 $('.sections').append('<div class="tab dataset-' + id + '-section"><div class="scroller"></div></div>');
 
-                S.editor.tabs.create('Dataset: ' + label, 'dataset-' + id + '-section', {},
+                S.ajax.post('DataSets/Details', { userId: id },
+                    function (d) {
+                        $('.tab.user-' + id + ' .scroller').html(d);
+                        S.editor.users._loadedUsers.push(id);
+                        self.details.updateFilebar(id, email);
+                        //add event listeners
+                        $('.btn-assign-group').on('click', () => { S.editor.users.security.assign(id); })
+                        $('.user-group .btn-delete-group').on('click', (e) => {
+                            var groupId = $(e.target).parents('.user-group').attr('data-id');
+                            S.editor.users.security.remove(id, groupId);
+                        });
+                    }
+                );
+
+                S.editor.tabs.create('Dataset: ' + name, 'dataset-' + id + '-section', {},
                     () => { //onfocus
                         $('.tab.dataset-' + id + '-section').removeClass('hide');
                     },

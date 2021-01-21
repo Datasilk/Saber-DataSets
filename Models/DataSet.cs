@@ -24,6 +24,10 @@ namespace Query.Models.DataSets
         public string Name { get; set; }
         [XmlElement("datatype")]
         public string DataType { get; set; }
+        [XmlElement("maxlength")]
+        public string MaxLength { get; set; }
+        [XmlElement("default")]
+        public string DefaultValue { get; set; }
     }
 
     public enum DataType
