@@ -11,7 +11,7 @@ S.editor.datasets = {
         show: function () {
             S.ajax.post('Datasets/GetCreateForm', {}, (response) => {
                 S.popup.show('Create a new Data Set', response);
-                $('.popup form').on('submit', S.editor.datasets.add.submit);
+                $('.popup form').on('submit', () => { S.editor.datasets.columns.load($('#dataset_partial').val()); });
 
                 //add event listener for partial view browse button
                 $('.popup .btn-browse').on('click', (e) => {
@@ -36,6 +36,20 @@ S.editor.datasets = {
                 S.editor.datasets.show(response, data.label);
                 //show new data set in a tab
             }, null, true);
+        }
+    },
+
+    columns: {
+        load: function (partial) {
+            //display popup with list of dataset columns
+            S.ajax.post('DataSets/LoadColumns', { partial:partial },
+                function (response) {
+                    S.popup.show('Configure Data Set', response);
+                    $('.popup .save-columns').on('click', (e) => {
+
+                    });
+                }
+            );
         }
     },
 

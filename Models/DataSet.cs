@@ -38,32 +38,4 @@ namespace Query.Models.DataSets
         bit = 3,
         datetime = 4
     }
-
-    public class Row
-    {
-        public string Name { get; set; }
-        public DataType DataType { get; set; }
-        public string Value { get; set; }
-
-        public override string ToString()
-        {
-            return Value;
-        }
-        public int? ToNumber()
-        {
-            int.TryParse(Value, out var number);
-            return number;
-        }
-        public decimal? ToFloat()
-        {
-            decimal.TryParse(Value, out var number);
-            return number;
-        }
-        
-        public DateTime? ToDateTime()
-        {
-            DateTime.TryParse(Value, out var date);
-            return date;
-        }
-    }
 }

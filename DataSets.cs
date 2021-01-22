@@ -38,12 +38,48 @@ namespace Saber.Vendors.DataSets
             return Cache.LoadFile("/Vendors/DataSets/create.html");
         }
 
-        public string GetCreateColumnsForm(string partial)
+        public string LoadColumns(string partial)
         {
             if (!CheckSecurity("create-datasets")) { return AccessDenied(); }
             //generate a form based on all the mustache variables & mustache components in the partial view.
             //add extra forms for each List component in order to create sub-data sets.
-            return Success();
+            var html = new StringBuilder();
+            var view = new View("/Content/" + partial);
+            var columns = new List<Query.Models.DataSets.Column>();
+            foreach(var elem in view.Elements.Where(a => a.Name != "" && !Common.Vendors.HtmlComponentKeys.Any(b => a.Name.IndexOf(b) == 0)))
+            {
+                if(elem.Htm.Substring(0, 1) == "/") { break; }
+                if (elem.isBlock)
+                {
+                    columns.Add(new Query.Models.DataSets.Column()
+                    {
+                        Name = elem.Name,
+                        DataType = "bit",
+                        DefaultValue = "0"
+                    });
+                }
+                else
+                {
+                    columns.Add(new Query.Models.DataSets.Column()
+                    {
+                        Name = elem.Name,
+                        DataType = "text",
+                        DefaultValue = ""
+                    });
+                }
+            }
+
+            foreach(var elem in view.Elements.Where(a => !a.isBlock && a.Name.StartsWith("list")))
+            {
+                //TODO: get all views from list components and include them in the form
+            }
+
+            var viewColumns = new View("/Vendors/DataSets/columns.html");
+            viewColumns["summary"] = "Dataset columns were generated based on the partial view you selected. Please make any data type changes to your columns before continuing.";
+            viewColumns["save-button"] = "Create Dataset";
+            viewColumns["columns"] = html.ToString();
+
+            return viewColumns.Render();
         }
 
         public string Create(string label, string description, List<Query.Models.DataSets.Column> columns)

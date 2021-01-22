@@ -1,0 +1,30 @@
+﻿<div class="row hover">
+    <div class="col four">
+        <div class="row field">Column</div>
+        <div class="row text">{{name}}</div>
+    </div>
+    <div class="col two">
+        <div class="row field">Data Type</div>
+        <div class="row text">
+            <select id="datatype_{{id}}">
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="decimal">Decimal</option>
+                <option value="bit">Boolean</option>
+                <option value="datetime">Date/Time</option>
+            </select>
+        </div>
+    </div>
+    <div class="col two">
+        <div class="row field">Max Length</div>
+        <div class="row input">
+            <input type="number" maxlength="3" value="0" />
+        </div>
+    </div>
+    <div class="col two">
+        <div class="row field">Default Value</div>
+        <div class="row input">
+            <input type="text" placeholder="optional" />
+        </div>
+    </div>
+</div>
