@@ -34,7 +34,7 @@ namespace Query.Models.DataSets
     {
         text = 0,
         number = 1,
-        number_float = 2,
+        number_decimal = 2,
         bit = 3,
         datetime = 4
     }

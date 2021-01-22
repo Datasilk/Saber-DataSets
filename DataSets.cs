@@ -45,28 +45,24 @@ namespace Saber.Vendors.DataSets
             //add extra forms for each List component in order to create sub-data sets.
             var html = new StringBuilder();
             var view = new View("/Content/" + partial);
-            var columns = new List<Query.Models.DataSets.Column>();
+            var viewColumn = new View("/Vendors/DataSets/column-field.html");
             foreach(var elem in view.Elements.Where(a => a.Name != "" && !Common.Vendors.HtmlComponentKeys.Any(b => a.Name.IndexOf(b) == 0)))
             {
+                viewColumn.Clear();
                 if(elem.Htm.Substring(0, 1) == "/") { break; }
                 if (elem.isBlock)
                 {
-                    columns.Add(new Query.Models.DataSets.Column()
-                    {
-                        Name = elem.Name,
-                        DataType = "bit",
-                        DefaultValue = "0"
-                    });
+                    viewColumn.Show("bit");
+                    viewColumn["id"] = elem.Name.ToLower();
+                    viewColumn["name"] = elem.Name;
                 }
                 else
                 {
-                    columns.Add(new Query.Models.DataSets.Column()
-                    {
-                        Name = elem.Name,
-                        DataType = "text",
-                        DefaultValue = ""
-                    });
+                    viewColumn.Show("datatype");
+                    viewColumn["id"] = elem.Name.ToLower();
+                    viewColumn["name"] = elem.Name;
                 }
+                html.Append(viewColumn.Render());
             }
 
             foreach(var elem in view.Elements.Where(a => !a.isBlock && a.Name.StartsWith("list")))
