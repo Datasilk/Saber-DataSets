@@ -19,9 +19,17 @@ namespace Query
             return Sql.Populate<Models.DataSet>("DataSets_GetList");
         }
 
-        public static List<dynamic> GetRecords(int datasetId)
+        public enum SearchType
         {
-            return Sql.Populate<dynamic>("DataSet_GetRecords", new { datasetId });
+            any = 0,
+            startsWith = 1,
+            endsWith = 2,
+            exactMatch = -1
+        }
+
+        public static List<dynamic> GetRecords(int datasetId, int start = 1, int length = 50, string search = "", string columns = "", SearchType searchType = SearchType.any, string orderby = "")
+        {
+            return Sql.Populate<dynamic>("DataSet_GetRecords", new { datasetId, start, length, search, columns, searchtype = (int)searchType, orderby });
         }
         
     }

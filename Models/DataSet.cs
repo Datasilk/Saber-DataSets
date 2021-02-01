@@ -20,13 +20,13 @@ namespace Query.Models.DataSets
     }
     public class Column
     {
-        [XmlElement("name")]
+        [XmlAttribute("name")]
         public string Name { get; set; }
-        [XmlElement("datatype")]
+        [XmlAttribute("datatype")]
         public string DataType { get; set; }
-        [XmlElement("maxlength")]
+        [XmlAttribute("maxlength")]
         public string MaxLength { get; set; }
-        [XmlElement("default")]
+        [XmlAttribute("default")]
         public string DefaultValue { get; set; }
     }
 

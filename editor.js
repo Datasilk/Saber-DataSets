@@ -11,7 +11,13 @@ S.editor.datasets = {
         show: function () {
             S.ajax.post('Datasets/GetCreateForm', {}, (response) => {
                 S.popup.show('Create a new Data Set', response);
-                $('.popup form').on('submit', (e) => { S.editor.datasets.columns.load(e, $('#dataset_partial').val()); });
+                $('.popup form').on('submit', (e) => {
+                    var name = $('#dataset_name').val();
+                    var description = $('#dataset_description').val();
+                    var partial = $('#dataset_partial').val();
+                    S.popup.hide();
+                    S.editor.datasets.columns.load(e, name, description, partial);
+                });
 
                 //add event listener for partial view browse button
                 $('.popup .btn-browse').on('click', (e) => {
@@ -22,32 +28,44 @@ S.editor.datasets = {
                 });
             });
 
-        },
-
-        submit: function (e) {
-            e.preventDefault();
-            $('.popup button.apply').hide();
-            var data = {
-                label: $('#dataset_name').val(),
-                partial: $('#dataset_partial').val()
-            };
-            S.ajax.post('Datasets/Create', data, (response) => {
-                S.popup.hide();
-                S.editor.datasets.show(response, data.label);
-                //show new data set in a tab
-            }, null, true);
         }
     },
 
     columns: {
-        load: function (e, partial) {
+        load: function (e, name, description, partial) {
             e.preventDefault();
             //display popup with list of dataset columns
             S.ajax.post('DataSets/LoadColumns', { partial:partial },
                 function (response) {
-                    S.popup.show('Configure Data Set', response, { className: 'dataset-columns' });
+                    S.popup.show('Configure Data Set "' + name + '"', response, { className: 'dataset-columns' });
+                    //add event listeners
                     $('.dataset-columns .save-columns').on('click', (e) => {
-
+                        //create dataset
+                        e.preventDefault();
+                        $('.popup button.apply').hide();
+                        var data = {
+                            name: name,
+                            description: description,
+                            partial: partial,
+                            columns: $('.popup .dataset-column').map((i, a) => {
+                                return {
+                                    Name: $(a).find('.column-name').val(),
+                                    DataType: $(a).find('.column-datatype').val(),
+                                    MaxLength: $(a).find('.column-maxlength').val() || '0',
+                                    DefaultValue: $(a).find('.column-default').val() || ''
+                                };
+                            })
+                        };
+                        console.log(data);
+                        S.ajax.post('Datasets/Create', data,
+                            function (response) {
+                                //load new data set into tab
+                                S.popup.hide();
+                                S.editor.datasets.records.show(response, name);
+                            },
+                            function (err) {
+                                S.editor.message('.popup .msg', err.responseText, 'error');
+                            });
                     });
                     $('.dataset-columns').css({ width: 500 });
                 }
@@ -68,17 +86,9 @@ S.editor.datasets = {
                 //create new content section
                 $('.sections').append('<div class="tab dataset-' + id + '-section"><div class="scroller"></div></div>');
 
-                S.ajax.post('DataSets/Details', { userId: id },
+                S.ajax.post('DataSets/Details', { datasetId: id },
                     function (d) {
-                        $('.tab.user-' + id + ' .scroller').html(d);
-                        S.editor.users._loadedUsers.push(id);
-                        self.details.updateFilebar(id, email);
-                        //add event listeners
-                        $('.btn-assign-group').on('click', () => { S.editor.users.security.assign(id); })
-                        $('.user-group .btn-delete-group').on('click', (e) => {
-                            var groupId = $(e.target).parents('.user-group').attr('data-id');
-                            S.editor.users.security.remove(id, groupId);
-                        });
+                        $('.tab.dataset-' + id + '-section .scroller').html(d);
                     }
                 );
 

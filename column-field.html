@@ -1,35 +1,57 @@
-﻿<div class="row hover">
+﻿<div class="row hover dataset-column">
     <div class="col four">
         <div class="row field">&nbsp;</div>
         <div class="row text pad-top-sm"><b>{{name}}</b></div>
+        <input type="hidden" class="column-name" value="{{name}}" />
     </div>
     <div class="col two">
-        <div class="row field">Data Type</div>
-        <div class="row text">
-            {{datatype}}
-            <select id="datatype_{{id}}">
+        <div class="row field faded">Data Type</div>
+        {{datatype}}
+        <div class="row input">
+            <select id="datatype_{{id}}" class="column-datatype">
                 <option value="text">Text</option>
                 <option value="number">Number</option>
                 <option value="decimal">Decimal</option>
                 <option value="datetime">Date/Time</option>
-                <option value="text">Image</option>
             </select>
-            {{/datatype}}
-            {{bit}}
-            <span>Show/Hide</span>
-            {{/bit}}
         </div>
+        {{/datatype}}
+        {{datatype-bit}}
+        <div class="row text">
+            <span>Show/Hide</span>
+            <input type="hidden" class="column-datatype" value="bit" />
+        </div>
+        {{/datatype-bit}}
+        {{datatype-image}}
+        <div class="row text">
+            <span>Image</span>
+            <input type="hidden" class="column-datatype" value="image" />
+        </div>
+        {{/datatype-image}}
     </div>
     <div class="col two">
-        <div class="row field">Max Length</div>
+        {{maxlength}}
+        <div class="row field faded">Max Length</div>
         <div class="row input">
-            <input type="number" id="maxlength_{{id}}" maxlength="3" value="0" />
+            <input type="number" id="maxlength_{{id}}" class="column-maxlength" maxlength="3" value="0" />
         </div>
+        {{/maxlength}}
     </div>
     <div class="col four">
-        <div class="row field">Default Value</div>
+        {{default-text}}
+        <div class="row field faded">Default Value</div>
         <div class="row input">
-            <input type="text" id="defaultvalue_{{id}}" placeholder="optional" />
+            <input type="text" id="defaultvalue_{{id}}" class="column-default" placeholder="optional" />
         </div>
+        {{/default-text}}
+        {{default-bit}}
+        <div class="row field faded">Default Value</div>
+        <div class="row input">
+            <select id="defaultvalue_{{id}}" class="column-default">
+                <option value="0">Hide</option>
+                <option value="1">Show</option>
+            </select>
+        </div>
+        {{/default-bit}}
     </div>
 </div>
