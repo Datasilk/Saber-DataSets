@@ -31,6 +31,22 @@ namespace Query
         {
             return Sql.Populate<dynamic>("DataSet_GetRecords", new { datasetId, start, length, search, columns, searchtype = (int)searchType, orderby });
         }
+
+        public static Models.DataSet GetInfo(int datasetId, bool columns = false)
+        {
+            var list = Sql.Populate<Models.DataSet>("DataSet_GetInfo", new { datasetId });
+            if(list.Count == 1)
+            {
+                var dataset = list.First();
+                if (columns)
+                {
+                    //get columns for dataset
+
+                }
+                return dataset;
+            }
+            return null;
+        }
         
     }
 }

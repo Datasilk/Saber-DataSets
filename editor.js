@@ -39,9 +39,9 @@ S.editor.datasets = {
                 function (response) {
                     S.popup.show('Configure Data Set "' + name + '"', response, { className: 'dataset-columns' });
                     //add event listeners
-                    $('.dataset-columns .save-columns').on('click', (e) => {
+                    $('.dataset-columns .save-columns').on('click', (e2) => {
                         //create dataset
-                        e.preventDefault();
+                        e2.preventDefault();
                         $('.popup button.apply').hide();
                         var data = {
                             name: name,
@@ -56,7 +56,6 @@ S.editor.datasets = {
                                 };
                             })
                         };
-                        console.log(data);
                         S.ajax.post('Datasets/Create', data,
                             function (response) {
                                 //load new data set into tab
@@ -68,6 +67,9 @@ S.editor.datasets = {
                             });
                     });
                     $('.dataset-columns').css({ width: 500 });
+                },
+                (err) => {
+                    S.editor.message('.popup .msg', err.responseText, 'error');
                 }
             );
         }
@@ -85,6 +87,7 @@ S.editor.datasets = {
             if ($('.tab.dataset-' + id + '-section').length == 0) {
                 //create new content section
                 $('.sections').append('<div class="tab dataset-' + id + '-section"><div class="scroller"></div></div>');
+                S.editor.resize.window();
 
                 S.ajax.post('DataSets/Details', { datasetId: id },
                     function (d) {
@@ -94,13 +97,28 @@ S.editor.datasets = {
 
                 S.editor.tabs.create('Dataset: ' + name, 'dataset-' + id + '-section', {},
                     () => { //onfocus
+                        //select tab & generate toolbar
                         $('.tab.dataset-' + id + '-section').removeClass('hide');
+                        S.editor.filebar.update(name, 'icon-dataset', '<button class="button new-record">New Record</button>');
+                        $('.file-bar .new-record').on('click', (e) => {
+                            //show popup modal with a content field list form
+
+                        });
                     },
                     () => { //onblur 
                     },
                     () => { //onsave 
                     }
                 );
+            } else {
+                $('.tab.dataset-' + id + '-section').removeClass('hide');
+                S.editor.tabs.select('dataset-' + id + '-section');
+            }
+        },
+
+        add: {
+            show: function (id) {
+                //show content fields form to create new row within data set
             }
         }
     }

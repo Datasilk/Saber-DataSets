@@ -46,12 +46,13 @@ namespace Saber.Vendors.DataSets
             var html = new StringBuilder();
             var view = new View("/Content/" + partial);
             var viewColumn = new View("/Vendors/DataSets/column-field.html");
+            var cols = 0;
             for(var x = 0; x < view.Elements.Count; x++)
             {
                 var elem = view.Elements[x];
                 if(elem.Name == "") { continue; }
                 if(Common.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0)) { continue; }
-                if(elem.Htm.Substring(0, 1) == "/") { continue; }
+                if(elem.Name.Substring(0, 1) == "/") { continue; }
                 viewColumn.Clear();
                 viewColumn["id"] = elem.Name.ToLower();
                 viewColumn["name"] = elem.Name;
@@ -77,11 +78,17 @@ namespace Saber.Vendors.DataSets
                     }
                 }
                 html.Append(viewColumn.Render());
+                cols++;
             }
 
             foreach(var elem in view.Elements.Where(a => !a.isBlock && a.Name.StartsWith("list")))
             {
                 //TODO: get all views from list components and include them in the form
+            }
+
+            if(cols == 0)
+            {
+                return Error("No mustache variables could be found within the selected partial view.");
             }
 
             var viewColumns = new View("/Vendors/DataSets/columns.html");
@@ -131,6 +138,14 @@ namespace Saber.Vendors.DataSets
                 view.Show("empty");
             }
             return view.Render();
+        }
+
+        public string LoadNewRecordForm(int datasetId, string language)
+        {
+            if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
+            var details = Query.DataSets.GetInfo(datasetId);
+            var view = new View("/partials/" + details.partialview);
+            return ContentFields.RenderForm(this, details.label, view, language, ".popup.new-record-for-" + datasetId, new Dictionary<string, string>());
         }
     }
 }

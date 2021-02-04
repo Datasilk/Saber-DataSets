@@ -5,7 +5,13 @@ namespace Query.Models
 {
     public class DataSet
     {
-
+        public int datasetId { get; set; }
+        public string label { get; set; }
+        public string tableName { get; set; }
+        public string partialview { get; set; }
+        public string description { get; set; }
+        public DateTime datecreated { get; set; }
+        public bool deleted { get; set; }
     }
 }
 
