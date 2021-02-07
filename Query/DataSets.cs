@@ -5,18 +5,18 @@ namespace Query
 {
     public static class DataSets
     {
-        public static int Create(string label, string description, List<Models.DataSets.Column> columns)
+        public static int Create(string label, string partialview, string description, List<Models.DataSets.Column> columns)
         {
             var list = new Models.DataSets.Columns()
             {
                 Items = columns.ToArray()
             };
-            return Sql.ExecuteScalar<int>("DataSet_Create", new { label, description, columns = Common.Serializer.ToXmlDocument(list).OuterXml });
+            return Sql.ExecuteScalar<int>("DataSet_Create", new { label, partialview, description, columns = Common.Serializer.ToXmlDocument(list).OuterXml });
         }
 
-        public static List<Models.DataSet> GetList()
+        public static List<Models.DataSet> GetList(string search = "")
         {
-            return Sql.Populate<Models.DataSet>("DataSets_GetList");
+            return Sql.Populate<Models.DataSet>("DataSets_GetList", new { search });
         }
 
         public enum SearchType

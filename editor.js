@@ -45,8 +45,8 @@ S.editor.datasets = {
                         $('.popup button.apply').hide();
                         var data = {
                             name: name,
-                            description: description,
                             partial: partial,
+                            description: description,
                             columns: $('.popup .dataset-column').map((i, a) => {
                                 return {
                                     Name: $(a).find('.column-name').val(),
@@ -76,8 +76,13 @@ S.editor.datasets = {
     },
 
     menu: {
-        load: function () {
+        load: function (callback) {
             //get list of data sets and display in menu
+            S.ajax.post('DataSets/GetList', {}, callback, null, true);
+        },
+
+        open: function (item) {
+            S.editor.datasets.records.show(item.datasetId, item.label);
         }
     },
 
@@ -102,7 +107,7 @@ S.editor.datasets = {
                         S.editor.filebar.update(name, 'icon-dataset', '<button class="button new-record">New Record</button>');
                         $('.file-bar .new-record').on('click', (e) => {
                             //show popup modal with a content field list form
-
+                            S.editor.datasets.records.add(id, name);
                         });
                     },
                     () => { //onblur 
@@ -117,8 +122,9 @@ S.editor.datasets = {
         },
 
         add: {
-            show: function (id) {
+            show: function (id, name) {
                 //show content fields form to create new row within data set
+
             }
         }
     }
@@ -148,11 +154,23 @@ S.ajax.post('Datasets/GetPermissions', {}, (response) => {
         //create a dropdown menu item under the website menu
         S.editor.dropmenu.add('.menu-bar .menu-item-website > .drop-menu > .menu', 'datasets', 'Data Sets', '#icon-datasets', true);
 
-        //add empty menu item
-        S.editor.dropmenu.add('.menu-bar .menu-item-datasets > .drop-menu > .menu', 'dataset-empty', 'No data sets exist yet');
-        $('.menu-bar .menu-item-datasets .item-dataset-empty').css({ opacity: 0.4 });
-        $('.menu-bar .menu-item-datasets .item-dataset-empty .icon').remove();
-        $('.menu-bar .menu-item-datasets .item-dataset-empty .text').css({ 'white-space': 'nowrap' });
+        //load datasets list into top menu
+        S.editor.datasets.menu.load((items) => {
+            if (!items || items.length == 0) {
+                //add empty menu item
+                S.editor.dropmenu.add('.menu-bar .menu-item-datasets > .drop-menu > .menu', 'dataset-empty', 'No data sets exist yet');
+                $('.menu-bar .menu-item-datasets .item-dataset-empty').css({ opacity: 0.4 });
+                $('.menu-bar .menu-item-datasets .item-dataset-empty .icon').remove();
+                $('.menu-bar .menu-item-datasets .item-dataset-empty .text').css({ 'white-space': 'nowrap' });
+            } else {
+                //generate menu items
+                for (let x = 0; x < items.length; x++) {
+                    let item = items[x];
+                    S.editor.dropmenu.add('.menu-bar .menu-item-datasets > .drop-menu > .menu', 'dataset-item', item.label, '#icon-dataset', x == 0, () => { S.editor.datasets.menu.open(item); });
+                }
+            }
+        });
+        
 
         //get a list of data sets that exist for this website to display in the dropdown menu
         S.editor.datasets.menu.load();

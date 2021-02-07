@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.ComponentModel;
-using System.Web;
 using Saber.Core;
 using Saber.Vendor;
 
@@ -11,11 +10,12 @@ namespace Saber.Vendors.DataSets
 {
     public class DataSets : Service, IVendorService
     {
-        public string GetList(string search)
+        public string GetList(string search = "")
         {
             try
             {
-                return JsonResponse("");
+                var datasets = Query.DataSets.GetList(search);
+                return JsonResponse(datasets.Select(a => new { a.datasetId, a.label, a.description }));
             }
             catch (Exception)
             {
@@ -99,11 +99,11 @@ namespace Saber.Vendors.DataSets
             return viewColumns.Render();
         }
 
-        public string Create(string name, string description, List<Query.Models.DataSets.Column> columns)
+        public string Create(string name, string partial, string description, List<Query.Models.DataSets.Column> columns)
         {
             if (!CheckSecurity("create-datasets")) { return AccessDenied(); }
             if(columns == null || columns.Count <= 0 || columns[0].Name == null || columns[0].Name == "") { return Error("No columns were defined"); }
-            var id = Query.DataSets.Create(name, description, columns);
+            var id = Query.DataSets.Create(name, partial, description, columns);
             return id > 0 ? id.ToString() : Error("An error occurred when trying to create a new data set");
         }
 
