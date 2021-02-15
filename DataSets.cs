@@ -12,10 +12,11 @@ namespace Saber.Vendors.DataSets
     {
         public string GetList(string search = "")
         {
+            if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
             try
             {
                 var datasets = Query.DataSets.GetList(search);
-                return JsonResponse(datasets.Select(a => new { a.datasetId, a.label, a.description }));
+                return JsonResponse(datasets.Select(a => new { a.datasetId, a.label, a.partialview, a.description }));
             }
             catch (Exception)
             {
@@ -116,17 +117,17 @@ namespace Saber.Vendors.DataSets
             var rows = new StringBuilder();
             if(data.Count > 0)
             {
-                foreach (PropertyDescriptor property in TypeDescriptor.GetProperties(data.First()))
+                foreach (var item in data.First())
                 {
-                    header.Append("<td>" + property.Name);
+                    header.Append("<td>" + item.Key);
                 }
                 view["table-head"] = header.ToString();
                 foreach (var item in data)
                 {
                     rows.Append("<tr>");
-                    foreach (PropertyDescriptor property in TypeDescriptor.GetProperties(item))
+                    foreach (var col in item)
                     {
-                        rows.Append("<td>" + property.GetValue(item) + "</td>");
+                        rows.Append("<td>" + col.Value.ToString() + "</td>");
                     }
                     rows.Append("</tr>");
                 }
@@ -140,12 +141,23 @@ namespace Saber.Vendors.DataSets
             return view.Render();
         }
 
-        public string LoadNewRecordForm(int datasetId, string language)
+        public string LoadNewRecordForm(int datasetId)
         {
             if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
             var details = Query.DataSets.GetInfo(datasetId);
             var view = new View("/partials/" + details.partialview);
-            return ContentFields.RenderForm(this, details.label, view, language, ".popup.new-record-for-" + datasetId, new Dictionary<string, string>());
+            return ContentFields.RenderForm(this, details.label, view, User.Language, ".popup.new-record-for-" + datasetId, new Dictionary<string, string>());
+        }
+
+        public string CreateRecord(int datasetId, Dictionary<string, string> fields)
+        {
+            if (!CheckSecurity("add-dataset-data")) { return AccessDenied(); }
+            if(fields.Count == 0)
+            {
+                return Error("No fields were included when trying to create a new record");
+            }
+            Query.DataSets.AddRecord(datasetId, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList());
+            return Success();
         }
     }
 }

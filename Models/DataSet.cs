@@ -44,4 +44,24 @@ namespace Query.Models.DataSets
         bit = 3,
         datetime = 4
     }
+
+    [Serializable]
+    [XmlRoot("fields")]
+    public class Fields
+    {
+        [XmlElement("field")]
+        public Field[] Items { get; set; }
+    }
+
+    public class Field
+    {
+        [XmlAttribute("name")]
+        public string Name { get; set; }
+
+        [XmlElement("value")]
+        public string Value { get; set; }
+
+        [XmlIgnore]
+        public DataType DataType { get; set; }
+    }
 }

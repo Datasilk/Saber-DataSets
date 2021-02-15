@@ -12,7 +12,7 @@ namespace Saber.Vendors.DataSets
             new SecurityKey(){Value = "edit-datasets", Label = "Edit Data Sets", Description = "Able to edit a data set's name and columns"},
             new SecurityKey(){Value = "delete-datasets", Label = "Delete Data Sets", Description = "Able to delete existing data sets"},
             new SecurityKey(){Value = "view-datasets", Label = "View Data Sets", Description = "Able to view a list of data sets and view their data"},
-            new SecurityKey(){Value = "add-datadata-data", Label = "Add/Import Data", Description = "Able to add new records to data sets"}
+            new SecurityKey(){Value = "add-dataset-data", Label = "Add/Import Data", Description = "Able to add or import new records to data sets"}
         };
     }
 }

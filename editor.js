@@ -60,7 +60,7 @@ S.editor.datasets = {
                             function (response) {
                                 //load new data set into tab
                                 S.popup.hide();
-                                S.editor.datasets.records.show(response, name);
+                                S.editor.datasets.records.show(response, partial, name);
                             },
                             function (err) {
                                 S.editor.message('.popup .msg', err.responseText, 'error');
@@ -76,38 +76,33 @@ S.editor.datasets = {
     },
 
     menu: {
-        load: function (callback) {
+        load: function (callback, err) {
             //get list of data sets and display in menu
-            S.ajax.post('DataSets/GetList', {}, callback, null, true);
+            S.ajax.post('DataSets/GetList', {}, callback, err, true);
         },
 
         open: function (item) {
-            S.editor.datasets.records.show(item.datasetId, item.label);
+            console.log(item);
+            S.editor.datasets.records.show(item.datasetId, item.partialview, item.label);
         }
     },
 
     records: {
-        show: function (id, name) {
+        show: function (id, partial, name) {
             $('.editor .sections > .tab').addClass('hide');
             if ($('.tab.dataset-' + id + '-section').length == 0) {
                 //create new content section
                 $('.sections').append('<div class="tab dataset-' + id + '-section"><div class="scroller"></div></div>');
                 S.editor.resize.window();
 
-                S.ajax.post('DataSets/Details', { datasetId: id },
-                    function (d) {
-                        $('.tab.dataset-' + id + '-section .scroller').html(d);
-                    }
-                );
-
-                S.editor.tabs.create('Dataset: ' + name, 'dataset-' + id + '-section', {},
+                S.editor.tabs.create('Dataset: ' + name, 'dataset-' + id + '-section', { removeOnClose:true },
                     () => { //onfocus
                         //select tab & generate toolbar
                         $('.tab.dataset-' + id + '-section').removeClass('hide');
                         S.editor.filebar.update(name, 'icon-dataset', '<button class="button new-record">New Record</button>');
                         $('.file-bar .new-record').on('click', (e) => {
                             //show popup modal with a content field list form
-                            S.editor.datasets.records.add(id, name);
+                            S.editor.datasets.records.add.show(id, partial, name);
                         });
                     },
                     () => { //onblur 
@@ -119,12 +114,29 @@ S.editor.datasets = {
                 $('.tab.dataset-' + id + '-section').removeClass('hide');
                 S.editor.tabs.select('dataset-' + id + '-section');
             }
+            //reload tab contents matter what
+            S.ajax.post('DataSets/Details', { datasetId: id },
+                function (d) {
+                    $('.tab.dataset-' + id + '-section .scroller').html(d);
+                }
+            );
         },
 
         add: {
-            show: function (id, name) {
+            show: function (id, partial, name) {
                 //show content fields form to create new row within data set
-
+                var popup = S.editor.fields.popup(partial, lang, 'Create a new Record for "' + name + '"', null, 'Create Record', (e, fields) => {
+                    //pass content field data to dataset service
+                    popup.find('button.apply').hide();
+                    S.ajax.post('Datasets/CreateRecord', { datasetId: id, fields: fields }, (response) => {
+                        S.popup.hide();
+                        //reload records tab
+                        S.editor.datasets.records.show(id, partial, name);
+                    }, (err) => {
+                            S.editor.message('.popup .msg', err.responseText, 'error');
+                            popup.find('button.apply').show();
+                    });
+                });
             }
         }
     }
@@ -169,6 +181,8 @@ S.ajax.post('Datasets/GetPermissions', {}, (response) => {
                     S.editor.dropmenu.add('.menu-bar .menu-item-datasets > .drop-menu > .menu', 'dataset-item', item.label, '#icon-dataset', x == 0, () => { S.editor.datasets.menu.open(item); });
                 }
             }
+        }, () => {
+            //no permission to view data sets
         });
         
 

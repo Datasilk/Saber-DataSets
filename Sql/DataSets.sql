@@ -1,8 +1,9 @@
 ﻿CREATE TABLE [dbo].[DataSets]
 (
-	[datasetId] INT NOT NULL PRIMARY KEY, 
+	[datasetId] INT IDENTITY(1,1) PRIMARY KEY, 
     [label] NVARCHAR(64) NOT NULL, 
     [tableName] NVARCHAR(64) NOT NULL, 
+    [partialview] NVARCHAR(255) NOT NULL DEFAULT '', 
     [datecreated] DATETIME2 NOT NULL, 
     [description] NVARCHAR(MAX) NOT NULL, 
     [deleted] BIT NOT NULL DEFAULT 0
