@@ -108,10 +108,10 @@ namespace Saber.Vendors.DataSets
             return id > 0 ? id.ToString() : Error("An error occurred when trying to create a new data set");
         }
 
-        public string Details(int datasetId)
+        public string Details(int datasetId, string lang, string search)
         {
             if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
-            var data = Query.DataSets.GetRecords(datasetId);
+            var data = Query.DataSets.GetRecords(datasetId, 1, 50, lang, search);
             var view = new View("/Vendors/DataSets/dataset.html");
             var header = new StringBuilder();
             var rows = new StringBuilder();
@@ -149,14 +149,14 @@ namespace Saber.Vendors.DataSets
             return ContentFields.RenderForm(this, details.label, view, User.Language, ".popup.new-record-for-" + datasetId, new Dictionary<string, string>());
         }
 
-        public string CreateRecord(int datasetId, Dictionary<string, string> fields)
+        public string CreateRecord(int datasetId, string lang, Dictionary<string, string> fields, int recordId = 0)
         {
             if (!CheckSecurity("add-dataset-data")) { return AccessDenied(); }
             if(fields.Count == 0)
             {
                 return Error("No fields were included when trying to create a new record");
             }
-            Query.DataSets.AddRecord(datasetId, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList());
+            Query.DataSets.AddRecord(datasetId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList(), recordId);
             return Success();
         }
     }

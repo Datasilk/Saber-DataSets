@@ -27,9 +27,9 @@ namespace Query
             exactMatch = -1
         }
 
-        public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string search = "", string columns = "", SearchType searchType = SearchType.any, string orderby = "")
+        public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string lang = "", string search = "", SearchType searchType = SearchType.any, string orderby = "")
         {
-            var list = Sql.Populate<dynamic>("DataSet_GetRecords", new { datasetId, start, length, search, columns, searchtype = (int)searchType, orderby });
+            var list = Sql.Populate<dynamic>("DataSet_GetRecords", new { datasetId, start, length, lang, search, searchtype = (int)searchType, orderby });
             var results = new List<IDictionary<string, object>>();
             foreach(var item in list)
             {
@@ -39,13 +39,13 @@ namespace Query
             return results;
         }
 
-        public static void AddRecord(int datasetId, List<Models.DataSets.Field> fields)
+        public static void AddRecord(int datasetId, string lang, List<Models.DataSets.Field> fields, int recordId = 0)
         {
             var list = new Models.DataSets.Fields()
             {
                 Items = fields.ToArray()
             };
-            Sql.ExecuteNonQuery("DataSet_AddRecord", new { datasetId, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
+            Sql.ExecuteNonQuery("DataSet_AddRecord", new { datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
         }
 
         public static Models.DataSet GetInfo(int datasetId, bool columns = false)

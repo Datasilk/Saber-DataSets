@@ -88,38 +88,59 @@ S.editor.datasets = {
     },
 
     records: {
-        show: function (id, partial, name) {
+        show: function (id, partial, name, lang, search) {
             $('.editor .sections > .tab').addClass('hide');
             if ($('.tab.dataset-' + id + '-section').length == 0) {
                 //create new content section
-                $('.sections').append('<div class="tab dataset-' + id + '-section"><div class="scroller"></div></div>');
+                $('.sections').append('<div class="tab dataset dataset-' + id + '-section"><div class="scroller"></div></div>');
                 S.editor.resize.window();
 
-                S.editor.tabs.create('Dataset: ' + name, 'dataset-' + id + '-section', { removeOnClose:true },
-                    () => { //onfocus
-                        //select tab & generate toolbar
-                        $('.tab.dataset-' + id + '-section').removeClass('hide');
-                        S.editor.filebar.update(name, 'icon-dataset', '<button class="button new-record">New Record</button>');
-                        $('.file-bar .new-record').on('click', (e) => {
-                            //show popup modal with a content field list form
-                            S.editor.datasets.records.add.show(id, partial, name);
-                        });
-                    },
-                    () => { //onblur 
-                    },
-                    () => { //onsave 
+                //reload tab contents no matter what
+                if (!lang) { lang = 'en';}
+                if (!search) { search = '';}
+                S.ajax.post('DataSets/Details', { datasetId: id, lang: lang, search: search },
+                    function (d) {
+                        $('.tab.dataset-' + id + '-section .scroller').html(d);
+                        S.editor.tabs.create('Dataset: ' + name, 'dataset-' + id + '-section', { removeOnClose: true },
+                            () => { //onfocus
+                                //select tab & generate toolbar
+                                $('.tab.dataset-' + id + '-section').removeClass('hide');
+                                S.editor.filebar.update(name, 'icon-dataset', $('.tab.dataset-' + id + '-section .temp-toolbar').html());
+                                var txtsearch = $('.tab-toolbar .search-dataset');
+                                txtsearch.val(search);
+                                txtsearch.on('keyup', (e) => {
+                                    if (event.key === "Enter") {
+                                        S.editor.datasets.records.show(id, partial, name, lang, txtsearch.val());
+                                    }
+                                });
+
+                                S.editor.lang.load('.tab-toolbar .lang', lang, (e) => {
+                                    //reload records with selected language
+                                    S.editor.datasets.records.show(id, partial, name, $('.tab-toolbar .lang').val(), search);
+                                });
+                                $('.file-bar .new-record').on('click', (e) => {
+                                    //show popup modal with a content field list form
+                                    S.editor.datasets.records.add.show(id, partial, name);
+                                });
+                            },
+                            () => { //onblur 
+                            },
+                            () => { //onsave 
+                            }
+                        );
                     }
                 );
             } else {
                 $('.tab.dataset-' + id + '-section').removeClass('hide');
                 S.editor.tabs.select('dataset-' + id + '-section');
+
+                //reload tab contents
+                S.ajax.post('DataSets/Details', { datasetId: id },
+                    function (d) {
+                        $('.tab.dataset-' + id + '-section .scroller').html(d);
+                    }
+                );
             }
-            //reload tab contents matter what
-            S.ajax.post('DataSets/Details', { datasetId: id },
-                function (d) {
-                    $('.tab.dataset-' + id + '-section .scroller').html(d);
-                }
-            );
         },
 
         add: {
