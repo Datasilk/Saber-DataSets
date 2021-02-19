@@ -171,6 +171,17 @@ S.editor.datasets = {
                         $(document.body).on('click', hideMenus);
                     });
 
+
+                    $('.tab.dataset-' + id + '-section tbody tr td:not(:last-child)').on('click', (e) => {
+                        //click on row to edit record using selected language
+                        var target = $(e.target);
+                        if (!e.target.tagName.toLowerCase() != 'tr') {
+                            target = target.parents('tr').first();
+                        }
+                        var recordId = target.attr('data-id');
+                        S.editor.datasets.records.edit(id, partial, recordId, name, lang);
+                    });
+
                     function hideMenus() {
                         menus.find('.drop-menu').remove();
                         $(document.body).off('click', hideMenus);

@@ -130,7 +130,7 @@ namespace Saber.Vendors.DataSets
                 foreach (var item in data)
                 {
                     //load column values for each dataset record
-                    rows.Append("<tr>");
+                    rows.Append("<tr data-id=\"" + ConvertFieldToString(item.First().Value) + "\">");
                     i = 0;
                     viewMenu.Clear();
                     foreach (var col in item)
@@ -185,6 +185,17 @@ namespace Saber.Vendors.DataSets
                 }
             }
             return JsonResponse(fields);
+        }
+
+        public string UpdateRecord(int datasetId, int recordId, string lang, Dictionary<string, string> fields)
+        {
+            if (!CheckSecurity("add-dataset-data")) { return AccessDenied(); }
+            if (fields.Count == 0)
+            {
+                return Error("No fields were included when trying to update an existing record");
+            }
+            Query.DataSets.UpdateRecord(datasetId, recordId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList());
+            return Success();
         }
 
         private string ConvertFieldToString(object item)

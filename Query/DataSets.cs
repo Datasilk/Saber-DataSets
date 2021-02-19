@@ -48,6 +48,15 @@ namespace Query
             Sql.ExecuteNonQuery("DataSet_AddRecord", new { datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
         }
 
+        public static void UpdateRecord(int datasetId, int recordId, string lang, List<Models.DataSets.Field> fields)
+        {
+            var list = new Models.DataSets.Fields()
+            {
+                Items = fields.ToArray()
+            };
+            Sql.ExecuteNonQuery("DataSet_UpdateRecord", new { datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
+        }
+
         public static Models.DataSet GetInfo(int datasetId, bool columns = false)
         {
             var list = Sql.Populate<Models.DataSet>("DataSet_GetInfo", new { datasetId });
