@@ -27,9 +27,9 @@ namespace Query
             exactMatch = -1
         }
 
-        public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string lang = "", string search = "", SearchType searchType = SearchType.any, string orderby = "")
+        public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string lang = "", string search = "", SearchType searchType = SearchType.any, string orderby = "", int recordId = 0)
         {
-            var list = Sql.Populate<dynamic>("DataSet_GetRecords", new { datasetId, start, length, lang, search, searchtype = (int)searchType, orderby });
+            var list = Sql.Populate<dynamic>("DataSet_GetRecords", new { datasetId, start, length, lang, search, searchtype = (int)searchType, recordId, orderby });
             var results = new List<IDictionary<string, object>>();
             foreach(var item in list)
             {

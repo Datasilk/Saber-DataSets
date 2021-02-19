@@ -113,7 +113,7 @@ namespace Saber.Vendors.DataSets
             if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
             var data = Query.DataSets.GetRecords(datasetId, 1, 50, lang, search);
             var view = new View("/Vendors/DataSets/dataset.html");
-            var viewMenu = Cache.LoadFile("/Vendors/DataSets/record-menu.html");
+            var viewMenu = new View("/Vendors/DataSets/record-menu.html");
             var header = new StringBuilder();
             var rows = new StringBuilder();
             if(data.Count > 0)
@@ -132,13 +132,15 @@ namespace Saber.Vendors.DataSets
                     //load column values for each dataset record
                     rows.Append("<tr>");
                     i = 0;
+                    viewMenu.Clear();
                     foreach (var col in item)
                     {
                         i++;
+                        if(i == 1) { viewMenu["recordId"] = ConvertFieldToString(col.Value); }
                         if (i <= 2) { continue; } //skip ID & lang columns
-                        rows.Append("<td>" + col.Value.ToString() + "</td>");
+                        rows.Append("<td>" + ConvertFieldToString(col.Value) + "</td>");
                     }
-                    rows.Append(viewMenu + "</tr>");
+                    rows.Append(viewMenu.Render() + "</tr>");
                 }
                 view["rows"] = rows.ToString();
                 view.Show("has-rows");
@@ -167,6 +169,44 @@ namespace Saber.Vendors.DataSets
             }
             Query.DataSets.AddRecord(datasetId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList(), recordId);
             return Success();
+        }
+
+        public string GetRecord(int datasetId, int recordId, string lang)
+        {
+            if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
+            var record = Query.DataSets.GetRecords(datasetId, 1, 1, lang, "", Query.DataSets.SearchType.any, "", recordId).FirstOrDefault();
+            var fields = new Dictionary<string, string>();
+            if(record != null)
+            {
+                foreach (var item in record)
+                {
+                    //convert field values to strings based on data type
+                    fields.Add(item.Key, ConvertFieldToString(item.Value));
+                }
+            }
+            return JsonResponse(fields);
+        }
+
+        private string ConvertFieldToString(object item)
+        {
+            var value = "";
+            var type = item.GetType();
+            if (type.Name == "String" || type == typeof(Int32) || type == typeof(decimal) || type == typeof(float))
+            {
+                value = item.ToString();
+            }
+            else if (type.FullName.Contains("DateTime"))
+            {
+                if (item != null)
+                {
+                    value = ((DateTime)item).ToString("MM/dd/yyyy hh:mm:ss tt");
+                }
+            }
+            else if (type.Name == "Boolean")
+            {
+                value = (bool)item == true ? "True" : "False";
+            }
+            return value;
         }
     }
 }
