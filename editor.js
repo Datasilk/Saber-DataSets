@@ -56,6 +56,7 @@ S.editor.datasets = {
                                 };
                             })
                         };
+                        //finally, create new dataset and load tab for new dataset
                         S.ajax.post('Datasets/Create', data,
                             function (response) {
                                 //load new data set into tab
@@ -90,66 +91,94 @@ S.editor.datasets = {
     records: {
         show: function (id, partial, name, lang, search) {
             $('.editor .sections > .tab').addClass('hide');
+            if (!lang) { lang = 'en'; }
+            if (!search) { search = ''; }
+
+            function focusTab() {
+                //select tab & generate toolbar
+                $('.tab.dataset-' + id + '-section').removeClass('hide');
+                S.editor.filebar.update(name, 'icon-dataset', $('.tab.dataset-' + id + '-section .temp-toolbar').html());
+                var txtsearch = $('.tab-toolbar .search-dataset');
+                txtsearch.val(search);
+                txtsearch.on('keyup', (e) => {
+                    if (event.key === "Enter") {
+                        search = txtsearch.val();
+                        S.editor.datasets.records.show(id, partial, name, lang, search);
+                    }
+                });
+
+                S.editor.lang.load('.tab-toolbar .lang', lang, (e) => {
+                    //reload records with selected language
+                    lang = $('.tab-toolbar .lang').val();
+                    S.editor.datasets.records.show(id, partial, name, lang, search);
+                });
+                $('.file-bar .new-record').on('click', (e) => {
+                    //show popup modal with a content field list form
+                    S.editor.datasets.records.add.show(id, partial, name);
+                });
+            }
+
             if ($('.tab.dataset-' + id + '-section').length == 0) {
                 //create new content section
                 $('.sections').append('<div class="tab dataset dataset-' + id + '-section"><div class="scroller"></div></div>');
                 S.editor.resize.window();
 
-                //reload tab contents no matter what
-                if (!lang) { lang = 'en';}
-                if (!search) { search = '';}
-                S.ajax.post('DataSets/Details', { datasetId: id, lang: lang, search: search },
-                    function (d) {
-                        $('.tab.dataset-' + id + '-section .scroller').html(d);
-                        S.editor.tabs.create('Dataset: ' + name, 'dataset-' + id + '-section', { removeOnClose: true },
-                            () => { //onfocus
-                                //select tab & generate toolbar
-                                $('.tab.dataset-' + id + '-section').removeClass('hide');
-                                S.editor.filebar.update(name, 'icon-dataset', $('.tab.dataset-' + id + '-section .temp-toolbar').html());
-                                var txtsearch = $('.tab-toolbar .search-dataset');
-                                txtsearch.val(search);
-                                txtsearch.on('keyup', (e) => {
-                                    if (event.key === "Enter") {
-                                        S.editor.datasets.records.show(id, partial, name, lang, txtsearch.val());
-                                    }
-                                });
-
-                                S.editor.lang.load('.tab-toolbar .lang', lang, (e) => {
-                                    //reload records with selected language
-                                    S.editor.datasets.records.show(id, partial, name, $('.tab-toolbar .lang').val(), search);
-                                });
-                                $('.file-bar .new-record').on('click', (e) => {
-                                    //show popup modal with a content field list form
-                                    S.editor.datasets.records.add.show(id, partial, name);
-                                });
-                            },
-                            () => { //onblur 
-                            },
-                            () => { //onsave 
-                            }
-                        );
+                //create tab
+                S.editor.tabs.create('Dataset: ' + name, 'dataset-' + id + '-section', { removeOnClose: true },
+                    () => { //onfocus
+                        focusTab();
+                    },
+                    () => { //onblur 
+                    },
+                    () => { //onsave 
                     }
                 );
             } else {
                 $('.tab.dataset-' + id + '-section').removeClass('hide');
                 S.editor.tabs.select('dataset-' + id + '-section');
-
-                //reload tab contents
-                S.ajax.post('DataSets/Details', { datasetId: id },
-                    function (d) {
-                        $('.tab.dataset-' + id + '-section .scroller').html(d);
-                    }
-                );
             }
+
+            //reload tab contents no matter what
+            S.ajax.post('DataSets/Details', { datasetId: id, lang: lang, search: search },
+                function (d) {
+                    $('.tab.dataset-' + id + '-section .scroller').html(d);
+                    if ($('.tab-toolbar .lang').children() == 0) {
+                        focusTab();
+                    }
+                    //add event listeners to each record
+                    var dropmenu = $('.tab.dataset-' + id + '-section .temp-row-menu').html();
+                    var menus = $('.tab.dataset-' + id + '-section .record-menu');
+                    menus.on('click', (e) => {
+                        //show drop-down menu for record
+                        hideMenus();
+                        var target = $(e.target);
+                        if (!target.hasClass('record-menu')) {
+                            target = target.parents('.record-menu').first();
+                        }
+                        target.append(dropmenu.replace('##edit-record##', Object.keys(S.editor.lang.supported).map((key) => {
+                            //add menu items to edit in all supported languages
+                            var name = S.editor.lang.supported[key];
+                            return '<li data-lang="' + key + '"><div class="row hover item"><div class="col icon"><svg viewBox="0 0 32 32"><use xlink:href="#icon-edit" x="0" y="0" width="32" height="32"></use></svg></div><div class="col text">Edit in ' + name + '</div></div></li>';
+                        }).join('')));
+                        $(document.body).on('click', hideMenus);
+                    });
+
+                    function hideMenus() {
+                        menus.find('.drop-menu').remove();
+                        $(document.body).off('click', hideMenus);
+                    }
+                }
+            );
         },
 
         add: {
             show: function (id, partial, name) {
                 //show content fields form to create new row within data set
+                var lang = $('.tab-toolbar .lang').val();
                 var popup = S.editor.fields.popup(partial, lang, 'Create a new Record for "' + name + '"', null, 'Create Record', (e, fields) => {
                     //pass content field data to dataset service
                     popup.find('button.apply').hide();
-                    S.ajax.post('Datasets/CreateRecord', { datasetId: id, fields: fields }, (response) => {
+                    S.ajax.post('Datasets/CreateRecord', { datasetId: id, lang: lang, fields: fields }, (response) => {
                         S.popup.hide();
                         //reload records tab
                         S.editor.datasets.records.show(id, partial, name);

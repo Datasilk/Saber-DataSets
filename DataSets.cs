@@ -113,23 +113,32 @@ namespace Saber.Vendors.DataSets
             if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
             var data = Query.DataSets.GetRecords(datasetId, 1, 50, lang, search);
             var view = new View("/Vendors/DataSets/dataset.html");
+            var viewMenu = Cache.LoadFile("/Vendors/DataSets/record-menu.html");
             var header = new StringBuilder();
             var rows = new StringBuilder();
             if(data.Count > 0)
             {
+                var i = 0;
                 foreach (var item in data.First())
                 {
+                    //load dataset column names in header row
+                    i++;
+                    if( i <= 2) { continue; } //skip ID & lang columns
                     header.Append("<td>" + item.Key);
                 }
                 view["table-head"] = header.ToString();
                 foreach (var item in data)
                 {
+                    //load column values for each dataset record
                     rows.Append("<tr>");
+                    i = 0;
                     foreach (var col in item)
                     {
+                        i++;
+                        if (i <= 2) { continue; } //skip ID & lang columns
                         rows.Append("<td>" + col.Value.ToString() + "</td>");
                     }
-                    rows.Append("</tr>");
+                    rows.Append(viewMenu + "</tr>");
                 }
                 view["rows"] = rows.ToString();
                 view.Show("has-rows");
