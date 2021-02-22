@@ -83,17 +83,18 @@ S.editor.datasets = {
         },
 
         open: function (item) {
-            console.log(item);
             S.editor.datasets.records.show(item.datasetId, item.partialview, item.label);
         }
     },
 
     records: {
-        show: function (id, partial, name, lang, search) {
+        show: function (id, partial, name, lang, search, start, length) {
             $('.editor .sections > .tab').addClass('hide');
             if (!lang) { lang = $('.tab-toolbar .lang').val(); }
             if (!lang) { lang = 'en'; }
             if (!search) { search = $('.tab-toolbar .search-dataset').val(); }
+            if (!start) { start = 1; }
+            if (!length) { length = 50; }
 
             function focusTab() {
                 //select tab & generate toolbar
@@ -116,6 +117,19 @@ S.editor.datasets = {
                 $('.file-bar .new-record').on('click', (e) => {
                     //show popup modal with a content field list form
                     S.editor.datasets.records.add.show(id, partial, name);
+                });
+
+                $('.tab-toolbar .dataset-menu > .row.hover').on('click', () => {
+                    $('.dataset-menu .drop-menu').show();
+                    function hideMenu() {
+                        $(document.body).off('click', hideMenu);
+                        $('.dataset-menu .drop-menu').hide();
+                    }
+                    $(document.body).on('click', hideMenu);
+                });
+
+                $('.dataset-menu .edit-partial').on('click', () => {
+                    S.editor.explorer.open('Content/' + partial);
                 });
             }
 
@@ -140,7 +154,7 @@ S.editor.datasets = {
             }
 
             //reload tab contents no matter what
-            S.ajax.post('DataSets/Details', { datasetId: id, lang: lang, search: search },
+            S.ajax.post('DataSets/Details', { datasetId: id, lang: lang, search: search, start: start, length: length },
                 function (d) {
                     $('.tab.dataset-' + id + '-section .scroller').html(d);
                     if ($('.tab-toolbar .lang').children().length == 0) {

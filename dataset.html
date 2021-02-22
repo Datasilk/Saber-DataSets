@@ -10,6 +10,58 @@
     {{/empty}}
 </div>
 <script type="text/html" class="temp-toolbar">
+    <div class="col right pad-right dataset-menu">
+        <div class="row hover icon small">
+            <svg viewBox="0 0 32 32">
+                <use xlink:href="#icon-dots" x="0" y="0" width="32" height="32"></use>
+            </svg>
+        </div>
+        <div class="drop-menu" style="display:none">
+            <ul class="menu">
+                <li>
+                    <div class="row hover item edit-partial">
+                        <div class="col icon">
+                            <svg viewBox="0 0 32 32">
+                                <use xlink:href="#icon-file-html" x="0" y="0" width="32" height="32"></use>
+                            </svg>
+                        </div>
+                        <div class="col text">Edit Partial View</div>
+                    </div>
+                </li>
+                <li>
+                    <div class="row hover item update-partial">
+                        <div class="col icon">
+                            <svg viewBox="0 0 32 32">
+                                <use xlink:href="#icon-cycle" x="0" y="0" width="32" height="32"></use>
+                            </svg>
+                        </div>
+                        <div class="col text">Update From Partial View</div>
+                    </div>
+                </li>
+                <li>
+                    <div class="row hover item edit-name">
+                        <div class="col icon">
+                            <svg viewBox="0 0 32 32">
+                                <use xlink:href="#icon-settings" x="0" y="0" width="32" height="32"></use>
+                            </svg>
+                        </div>
+                        <div class="col text">Edit Data Set Information</div>
+                    </div>
+                </li>
+                <li><div class="row line"></div></li>
+                <li>
+                    <div class="row hover item delete-dataset">
+                        <div class="col icon">
+                            <svg viewBox="0 0 32 32">
+                                <use xlink:href="#icon-close" x="0" y="0" width="32" height="32"></use>
+                            </svg>
+                        </div>
+                        <div class="col text">Delete Data Set</div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
     <div class="col right pad-right">
         <button class="button new-record">New Record</button>
     </div>

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.ComponentModel;
 using Saber.Core;
 using Saber.Vendor;
 
@@ -108,10 +107,10 @@ namespace Saber.Vendors.DataSets
             return id > 0 ? id.ToString() : Error("An error occurred when trying to create a new data set");
         }
 
-        public string Details(int datasetId, string lang, string search)
+        public string Details(int datasetId, string lang, string search, int start = 1, int length = 50)
         {
             if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
-            var data = Query.DataSets.GetRecords(datasetId, 1, 50, lang, search);
+            var data = Query.DataSets.GetRecords(datasetId, start, length, lang, search);
             var view = new View("/Vendors/DataSets/dataset.html");
             var viewMenu = new View("/Vendors/DataSets/record-menu.html");
             var header = new StringBuilder();
