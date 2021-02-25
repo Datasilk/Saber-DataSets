@@ -72,6 +72,11 @@ namespace Query
             }
             return null;
         }
+
+        public static void UpdateInfo(int datasetId, string name, string description)
+        {
+            Sql.ExecuteNonQuery("DataSet_UpdateInfo", new { datasetId, name, description });
+        }
         
     }
 }
