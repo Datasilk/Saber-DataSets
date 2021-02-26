@@ -38,6 +38,12 @@ namespace Saber.Vendors.DataSets
             return Cache.LoadFile("/Vendors/DataSets/create.html");
         }
 
+        public string GetUpdateInfoForm()
+        {
+            if (!CheckSecurity("edit-datasets")) { return AccessDenied(); }
+            return Cache.LoadFile("/Vendors/DataSets/update-info.html");
+        }
+
         public string LoadColumns(string partial)
         {
             if (!CheckSecurity("create-datasets")) { return AccessDenied(); }
@@ -105,6 +111,13 @@ namespace Saber.Vendors.DataSets
             if(columns == null || columns.Count <= 0 || columns[0].Name == null || columns[0].Name == "") { return Error("No columns were defined"); }
             var id = Query.DataSets.Create(name, partial, description, columns);
             return id > 0 ? id.ToString() : Error("An error occurred when trying to create a new data set");
+        }
+
+        public string UpdateInfo(int datasetId, string name, string description)
+        {
+            if (!CheckSecurity("edit-datasets")) { return AccessDenied(); }
+            Query.DataSets.UpdateInfo(datasetId, name, description);
+            return Success();
         }
 
         public string Details(int datasetId, string lang, string search, int start = 1, int length = 50)
