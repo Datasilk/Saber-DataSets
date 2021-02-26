@@ -288,10 +288,6 @@ S.ajax.post('Datasets/GetPermissions', {}, (response) => {
         }, () => {
             //no permission to view data sets
         });
-        
-
-        //get a list of data sets that exist for this website to display in the dropdown menu
-        S.editor.datasets.menu.load();
     }
 
     //add icons to the editor
