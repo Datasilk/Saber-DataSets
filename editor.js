@@ -277,9 +277,22 @@ S.editor.datasets = {
             });
             
         }
+    },
+
+    contentfields: {
+        filter: {
+            init: function (container, inputfield) {
+                //add event listeners to all filter inputs and save filter settings to
+                //input field so when Saber saves Page Content tab, it saves updated filter settings
+                var inputs = container.find('input, select, textarea');
+                inputs.on('keyup, change', (e) => {
+                    var filter = { search: container.find('.filter-search').val().replace(/\|/g, '') };
+                    S.editor.fields.custom.list.datasource.filter.save(inputfield, filter);
+                });
+            }
+        }
     }
 };
-
 
 //create a new top menu item
 S.editor.topmenu.add('datasets', 'Data Sets');
@@ -301,9 +314,6 @@ S.ajax.post('Datasets/GetPermissions', {}, (response) => {
     }
 
     if (sec.view == true) {
-        //create a dropdown menu item under the website menu
-        S.editor.dropmenu.add('.menu-bar .menu-item-website > .drop-menu > .menu', 'datasets', 'Data Sets', '#icon-datasets', true);
-
         //load datasets list into top menu
         S.editor.datasets.menu.load((items) => {
             if (!items || items.length == 0) {

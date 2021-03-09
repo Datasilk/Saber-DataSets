@@ -57,20 +57,19 @@ namespace Query
             Sql.ExecuteNonQuery("DataSet_UpdateRecord", new { datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
         }
 
-        public static Models.DataSet GetInfo(int datasetId, bool columns = false)
+        public static Models.DataSet GetInfo(int datasetId)
         {
             var list = Sql.Populate<Models.DataSet>("DataSet_GetInfo", new { datasetId });
             if(list.Count == 1)
             {
-                var dataset = list.First();
-                if (columns)
-                {
-                    //get columns for dataset
-
-                }
-                return dataset;
+                return list.First();
             }
             return null;
+        }
+
+        public static List<Models.DataSets.Column> GetColumns(int datasetId)
+        {
+            return Sql.Populate<Models.DataSets.Column>("DataSet_GetColumns", new { datasetId });
         }
 
         public static void UpdateInfo(int datasetId, string name, string description)
