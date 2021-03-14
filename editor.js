@@ -15,8 +15,9 @@ S.editor.datasets = {
                     var name = $('#dataset_name').val();
                     var description = $('#dataset_description').val();
                     var partial = $('#dataset_partial').val();
+                    var isprivate = $('#dataset_private')[0].checked;
                     S.popup.hide();
-                    S.editor.datasets.columns.load(e, name, description, partial);
+                    S.editor.datasets.columns.load(e, name, description, partial, isprivate);
                 });
 
                 //add event listener for partial view browse button
@@ -31,7 +32,7 @@ S.editor.datasets = {
     },
 
     columns: {
-        load: function (e, name, description, partial) {
+        load: function (e, name, description, partial, isprivate) {
             e.preventDefault();
             //display popup with list of dataset columns
             S.ajax.post('DataSets/LoadColumns', { partial:partial },
@@ -46,6 +47,7 @@ S.editor.datasets = {
                             name: name,
                             partial: partial,
                             description: description,
+                            isprivate: isprivate ? isprivate === true : false,
                             columns: $('.popup .dataset-column').map((i, a) => {
                                 return {
                                     Name: $(a).find('.column-name').val(),
@@ -78,7 +80,7 @@ S.editor.datasets = {
     menu: {
         load: function (callback, err) {
             //get list of data sets and display in menu
-            S.ajax.post('DataSets/GetList', {}, callback, err, true);
+            S.ajax.post('DataSets/GetList', {owned:true, all:true}, callback, err, true);
         },
 
         open: function (item) {
@@ -220,7 +222,7 @@ S.editor.datasets = {
                     });
 
 
-                    $('.tab.dataset-' + id + '-section tbody tr td:not(:last-child)').on('click', (e) => {
+                    $('.tab.dataset-' + id + '-section tbody tr td:not(.no-details)').on('click', (e) => {
                         //click on row to edit record using selected language
                         var target = $(e.target);
                         if (!e.target.tagName.toLowerCase() != 'tr') {
@@ -291,6 +293,13 @@ S.editor.datasets = {
                 });
             }
         }
+    },
+
+    viewOwner: function (e, userId, email) {
+        e.preventDefault();
+        e.cancelBubble = true;
+        S.editor.users.details.show(userId, email);
+        return false;
     }
 };
 

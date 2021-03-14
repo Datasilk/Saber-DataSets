@@ -9,12 +9,13 @@ namespace Saber.Vendors.DataSets
 {
     public class DataSets : Service, IVendorService
     {
-        public string GetList(string search = "")
+        #region "Data Sets"
+        public string GetList(bool owned = true, bool all = true, string search = "")
         {
             if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
             try
             {
-                var datasets = Query.DataSets.GetList(search);
+                var datasets = Query.DataSets.GetList(owned ? User.UserId : null, all, search);
                 return JsonResponse(datasets.Select(a => new { a.datasetId, a.label, a.partialview, a.description }));
             }
             catch (Exception)
@@ -105,25 +106,28 @@ namespace Saber.Vendors.DataSets
             return viewColumns.Render();
         }
 
-        public string Create(string name, string partial, string description, List<Query.Models.DataSets.Column> columns)
+        public string Create(string name, string partial, string description, List<Query.Models.DataSets.Column> columns, bool isprivate = false)
         {
             if (!CheckSecurity("create-datasets")) { return AccessDenied(); }
             if(columns == null || columns.Count <= 0 || columns[0].Name == null || columns[0].Name == "") { return Error("No columns were defined"); }
-            var id = Query.DataSets.Create(name, partial, description, columns);
+            var id = Query.DataSets.Create(name, partial, description, columns, isprivate == true ? User.UserId : null);
             return id > 0 ? id.ToString() : Error("An error occurred when trying to create a new data set");
         }
 
         public string UpdateInfo(int datasetId, string name, string description)
         {
             if (!CheckSecurity("edit-datasets")) { return AccessDenied(); }
+            if(!IsOwner(datasetId)){ return AccessDenied("You do not own this dataset"); }
             Query.DataSets.UpdateInfo(datasetId, name, description);
             return Success();
         }
 
-        public string Details(int datasetId, string lang, string search, int start = 1, int length = 50)
+        public string Details(int datasetId, string lang, string search, int start = 1, int length = 50, int searchType = 0)
         {
             if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
-            var data = Query.DataSets.GetRecords(datasetId, start, length, lang, search);
+            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
+            var orderby = "";
+            var data = Query.DataSets.GetRecords(datasetId, start, length, lang, search, (Query.DataSets.SearchType)searchType, orderby);
             var view = new View("/Vendors/DataSets/dataset.html");
             var viewMenu = new View("/Vendors/DataSets/record-menu.html");
             var header = new StringBuilder();
@@ -135,22 +139,47 @@ namespace Saber.Vendors.DataSets
                 {
                     //load dataset column names in header row
                     i++;
-                    if( i <= 2) { continue; } //skip ID & lang columns
-                    header.Append("<td>" + item.Key);
+                    if( i <= 4 || (i == 5 && !User.IsAdmin)) 
+                    {
+                        //skip username, useremail, ID, lang, & userId columns
+                        continue; 
+                    }else if((i == 5 && User.IsAdmin))
+                    {
+                        header.Append("<td><b>Owner</b></td>");
+                    }
+                    else
+                    {
+                        header.Append("<td>" + item.Key + "</td>");
+                    }
                 }
                 view["table-head"] = header.ToString();
                 foreach (var item in data)
                 {
                     //load column values for each dataset record
-                    rows.Append("<tr data-id=\"" + ConvertFieldToString(item.First().Value) + "\">");
+                    var recordId = ConvertFieldToString(item["Id"]);
+                    viewMenu["recordId"] = recordId;
+                    rows.Append("<tr data-id=\"" + recordId + "\">");
                     i = 0;
                     viewMenu.Clear();
+                    var username = item["username"].ToString();
+                    var useremail = item["useremail"].ToString();
                     foreach (var col in item)
                     {
                         i++;
-                        if(i == 1) { viewMenu["recordId"] = ConvertFieldToString(col.Value); }
-                        if (i <= 2) { continue; } //skip ID & lang columns
-                        rows.Append("<td>" + ConvertFieldToString(col.Value) + "</td>");
+                        if (i <= 4) {
+                            //skip username, recordId, & lang columns
+                            continue; 
+                        } 
+                        if(i == 5 && User.IsAdmin == true)
+                        {
+                            //display user information to Admin
+                            rows.Append("<td class=\"no-details\"><a href=\"javascript:\" onclick=\"S.editor.datasets.viewOwner(event, " + col.Value + ",'" + useremail + "')\">" + username + "</a></td>");
+                        }
+                        else
+                        {
+                            //display field value
+                            rows.Append("<td>" + ConvertFieldToString(col.Value) + "</td>");
+                        }
                     }
                     rows.Append(viewMenu.Render() + "</tr>");
                 }
@@ -163,10 +192,13 @@ namespace Saber.Vendors.DataSets
             }
             return view.Render();
         }
+        #endregion
 
+        #region "Records"
         public string LoadNewRecordForm(int datasetId)
         {
             if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
+            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
             var details = Query.DataSets.GetInfo(datasetId);
             var view = new View("/partials/" + details.partialview);
             return ContentFields.RenderForm(this, details.label, view, User.Language, ".popup.new-record-for-" + datasetId, new Dictionary<string, string>());
@@ -175,19 +207,26 @@ namespace Saber.Vendors.DataSets
         public string CreateRecord(int datasetId, string lang, Dictionary<string, string> fields, int recordId = 0)
         {
             if (!CheckSecurity("add-dataset-data")) { return AccessDenied(); }
-            if(fields.Count == 0)
+            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
+            if (fields.Count == 0)
             {
                 return Error("No fields were included when trying to create a new record");
             }
-            Query.DataSets.AddRecord(datasetId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList(), recordId);
+            Query.DataSets.AddRecord(User.UserId, datasetId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList(), recordId);
             return Success();
         }
 
         public string GetRecord(int datasetId, int recordId, string lang)
         {
             if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
-            var record = Query.DataSets.GetRecords(datasetId, 1, 1, lang, "", Query.DataSets.SearchType.any, "", recordId).FirstOrDefault();
+            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
+            var record = Query.DataSets.GetRecords(datasetId, 1, 1, lang, "", Query.DataSets.SearchType.any, "", 0, recordId).FirstOrDefault();
             var fields = new Dictionary<string, string>();
+            if(record == null && lang != "en")
+            {
+                //try to get record in English if one doesn't exist in the selected language
+                record = Query.DataSets.GetRecords(datasetId, 1, 1, "en", "", Query.DataSets.SearchType.any, "", 0, recordId).FirstOrDefault();
+            }
             if(record != null)
             {
                 foreach (var item in record)
@@ -202,12 +241,26 @@ namespace Saber.Vendors.DataSets
         public string UpdateRecord(int datasetId, int recordId, string lang, Dictionary<string, string> fields)
         {
             if (!CheckSecurity("add-dataset-data")) { return AccessDenied(); }
+            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
             if (fields.Count == 0)
             {
                 return Error("No fields were included when trying to update an existing record");
             }
             Query.DataSets.UpdateRecord(datasetId, recordId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList());
             return Success();
+        }
+        #endregion
+
+        #region "Helpers"
+
+        private bool IsOwner(int datasetId)
+        {
+            var dataset = Query.DataSets.GetInfo(datasetId);
+            if (User.IsAdmin == true || (dataset.userId.HasValue && dataset.userId == User.UserId))
+            {
+                return true;
+            }
+            return false;
         }
 
         private string ConvertFieldToString(object item)
@@ -231,5 +284,7 @@ namespace Saber.Vendors.DataSets
             }
             return value;
         }
+
+        #endregion
     }
 }

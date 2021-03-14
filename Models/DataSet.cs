@@ -6,6 +6,7 @@ namespace Query.Models
     public class DataSet
     {
         public int datasetId { get; set; }
+        public int? userId { get; set; }
         public string label { get; set; }
         public string tableName { get; set; }
         public string partialview { get; set; }
