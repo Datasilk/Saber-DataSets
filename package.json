@@ -1,0 +1,24 @@
+{
+  "name": "datasets",
+  "version": "1.0.0",
+  "main": "gulpfile.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/datasilk/saber-datasets.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/datasilk/saber-datasets/issues"
+  },
+  "homepage": "https://github.com/datasilk/saber-datasets#readme",
+  "devDependencies": {
+    "7zip-bin": "^5.0.3",
+    "gulp": "^4.0.2",
+    "gulp-less": "^4.0.1",
+    "node-7z": "^2.1.2"
+  }
+}

@@ -58,7 +58,7 @@ namespace Saber.Vendors.DataSets
             {
                 var elem = view.Elements[x];
                 if(elem.Name == "") { continue; }
-                if(Common.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0)) { continue; }
+                if(Core.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0)) { continue; }
                 if(elem.Name.Substring(0, 1) == "/") { continue; }
                 viewColumn.Clear();
                 viewColumn["id"] = elem.Name.ToLower();

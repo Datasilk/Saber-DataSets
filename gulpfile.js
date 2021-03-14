@@ -3,18 +3,15 @@ var gulp = require('gulp'),
     sevenZip = require('node-7z'),
     less = require('gulp-less');
 
-var app = 'StressTest';
+var app = 'DataSets';
 var release = 'bin/Release/net5.0/';
 var publish = 'bin/Publish/';
 
 function publishToPlatform(platform) {
-    gulp.src('runtest.less')
-        .pipe(less())
-        .pipe(gulp.dest(publish + '/' + platform + '/' + app, { overwrite: true }));
-
     return gulp.src([
         //include custom resources
-        'runtest.html', 'runtest.js', 'test.html', 'test.js', 'test.json', 'test_en.json', 'websitesettings.html', 'websitesettings.js'
+        'column-field.html', 'columns.html', 'create.html', 'dataset.html', 'datasource-filter.html', 'editor.js', 'editor.less', 'icons.svg',
+        'record-menu.html', 'update-info.html'
         //include all files from published folder
         release + platform + '/publish/*',
         //exclude unwanted dependencies
