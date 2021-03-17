@@ -76,6 +76,11 @@ namespace Query
         {
             Sql.ExecuteNonQuery("DataSet_UpdateInfo", new { datasetId, name, description });
         }
+
+        public static void Delete(int datasetId)
+        {
+            Sql.ExecuteNonQuery("DataSet_Delete", new { datasetId });
+        }
         
     }
 }

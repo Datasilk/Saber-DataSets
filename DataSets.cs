@@ -110,8 +110,15 @@ namespace Saber.Vendors.DataSets
         {
             if (!CheckSecurity("create-datasets")) { return AccessDenied(); }
             if(columns == null || columns.Count <= 0 || columns[0].Name == null || columns[0].Name == "") { return Error("No columns were defined"); }
-            var id = Query.DataSets.Create(name, partial, description, columns, isprivate == true ? User.UserId : null);
-            return id > 0 ? id.ToString() : Error("An error occurred when trying to create a new data set");
+            try
+            {
+                var id = Query.DataSets.Create(name, partial, description, columns, isprivate == true ? User.UserId : null);
+                return id > 0 ? id.ToString() : Error("An error occurred when trying to create a new data set");
+            }
+            catch(Exception ex)
+            {
+                return Error(ex.Message);
+            }
         }
 
         public string UpdateInfo(int datasetId, string name, string description)
@@ -191,6 +198,21 @@ namespace Saber.Vendors.DataSets
                 view.Show("empty");
             }
             return view.Render();
+        }
+
+        public string Delete(int datasetId)
+        {
+            if (!CheckSecurity("delete-datasets")) { return AccessDenied(); }
+            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
+            try
+            {
+                Query.DataSets.Delete(datasetId);
+                return Success();
+            }
+            catch (Exception)
+            {
+                return Error("Could not delete Data Set");
+            }
         }
         #endregion
 
