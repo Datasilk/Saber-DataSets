@@ -72,9 +72,9 @@ namespace Query
             return Sql.Populate<Models.DataSets.Column>("DataSet_GetColumns", new { datasetId });
         }
 
-        public static void UpdateInfo(int datasetId, string name, string description)
+        public static void UpdateInfo(int datasetId, int? userId, string label, string description)
         {
-            Sql.ExecuteNonQuery("DataSet_UpdateInfo", new { datasetId, name, description });
+            Sql.ExecuteNonQuery("DataSet_UpdateInfo", new { datasetId, userId, label, description });
         }
 
         public static void Delete(int datasetId)

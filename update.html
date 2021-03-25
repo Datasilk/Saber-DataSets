@@ -2,17 +2,17 @@
     <div class="msg hide"><span></span></div>
     <div class="row field">Data Set Name</div>
     <div class="row input">
-        <input type="text" maxlength="64" id="dataset_name" />
+        <input type="text" maxlength="64" id="dataset_name" value="{{name}}" />
     </div>
     <div class="row field">Description</div>
     <div class="row input">
-        <input type="text" maxlength="255" id="dataset_description" />
+        <input type="text" maxlength="255" id="dataset_description" value="{{description}}"  />
     </div>
     <div class="row pad-top">
-        <input type="checkbox" id="dataset_private" />
+        <input type="checkbox" id="dataset_private" {{isprivate}}checked="checked"{{/isprivate}} />
         <label for="dataset_private">Make this Data Set private</label>
     </div>
     <div class="row pad-top text-center">
-        <button class="apply">Update</button>
+        <button class="apply">Save Changes</button>
     </div>
 </form>

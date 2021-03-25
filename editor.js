@@ -53,7 +53,7 @@ S.editor.datasets = {
                     
                 },
                 function (err) {
-                    S.editor.message('.popup .msg', err.responseText, 'error');
+                    S.editor.error('.popup .msg', err.responseText);
                 });
         }
     },
@@ -77,7 +77,7 @@ S.editor.datasets = {
                     $('.dataset-columns').css({ width: 500 });
                 },
                 (err) => {
-                    S.editor.message('.popup .msg', err.responseText, 'error');
+                    S.editor.error('.popup .msg', err.responseText);
                 }
             );
         }
@@ -90,7 +90,7 @@ S.editor.datasets = {
                 $('.menu-bar .menu-item-datasets li.is-dataset').remove();
                 if (!items || items.length == 0) {
                     //add empty menu item
-                    S.editor.dropmenu.add('.menu-bar .menu-item-datasets > .drop-menu > .menu', 'dataset-empty', 'No data sets exist yet');
+                    S.editor.dropmenu.add('.menu-bar .menu-item-datasets > .drop-menu > .menu', 'dataset-empty', 'No data sets exist yet', null, null, null, 'is-dataset');
                     $('.menu-bar .menu-item-datasets .item-dataset-empty').css({ opacity: 0.4 });
                     $('.menu-bar .menu-item-datasets .item-dataset-empty .icon').remove();
                     $('.menu-bar .menu-item-datasets .item-dataset-empty .text').css({ 'white-space': 'nowrap' });
@@ -160,33 +160,25 @@ S.editor.datasets = {
                 });
 
                 $('.dataset-menu .edit-info').on('click', () => {
-                    S.ajax.post('Datasets/GetUpdateInfoForm', {}, (response) => {
-                        S.popup.show('Update an existing Data Set', response);
+                    S.ajax.post('Datasets/GetUpdateInfoForm', {datasetId: id}, (response) => {
+                        var popup = S.popup.show('Update an existing Data Set', response);
                         $('.popup form').on('submit', (e) => {
                             //update dataset info
                             e.preventDefault();
                             popup.find('button.apply').hide();
                             var newname = $('#dataset_name').val();
                             var description = $('#dataset_description').val();
-                            S.ajax.post('Datasets/UpdateInfo', {datasetId:id, name:newname, description:description}, (response) => {
+                            var isprivate = $('#dataset_private')[0].checked;
+                            S.ajax.post('Datasets/UpdateInfo', { datasetId: id, name: newname, description: description, isprivate: isprivate}, (response) => {
                                 S.popup.hide();
                                 //change datasets dropdown menu item, tab title & toolbar title with updated dataset name
                                 name = newname;
                                 $('.file-bar .file-path').html(newname);
-                                $('.tab-dataset-' + id + 'section .tab-title').html('Dataset: ' + newname);
-                                $('.menu-item-datasets .dataset-' + id + ' .col.text').html(newname);
+                                $('.tab-dataset-' + id + '-section .tab-title').html('Dataset: ' + newname);
+                                S.editor.datasets.menu.load();
                             }, (err) => {
-                                S.editor.message('.popup .msg', err.responseText, 'error');
+                                S.editor.error('.popup .msg', err.responseText);
                                 popup.find('button.apply').show();
-                            });
-
-                        });
-
-                        //add event listener for partial view browse button
-                        $('.popup .btn-browse').on('click', (e) => {
-                            //show file select popup for partial view selection
-                            S.editor.explorer.select('Select Partial View', 'Content/partials', '.html', (file) => {
-                                $(e.target).parents('.select-partial').first().find('input').val(file.replace('Content/', '').replace('content/', ''));
                             });
                         });
                     });
@@ -205,7 +197,7 @@ S.editor.datasets = {
                                 //update Data Sets top menu
                                 S.editor.datasets.menu.load();
                             }, (err) => {
-                                S.editor.message('.popup .msg', err.responseText, 'error');
+                                S.editor.error('.popup .msg', err.responseText);
                             });
                         }
                     });
@@ -295,7 +287,7 @@ S.editor.datasets = {
                         //reload records tab
                         S.editor.datasets.records.show(id, partial, name);
                     }, (err) => {
-                            S.editor.message('.popup .msg', err.responseText, 'error');
+                            S.editor.error('.popup .msg', err.responseText);
                             popup.find('button.apply').show();
                     });
                 });
@@ -313,12 +305,12 @@ S.editor.datasets = {
                         //reload records tab
                         S.editor.datasets.records.show(datasetId, partial, name);
                     }, (err) => {
-                        S.editor.message('.popup .msg', err.responseText, 'error');
+                        S.editor.error('.popup .msg', err.responseText);
                         popup.find('button.apply').show();
                     });
                 });
             }, (err) => {
-                S.editor.message(null, err.responseText, 'error');
+                S.editor.error('', err.responseText);
             });
             
         }

@@ -12,7 +12,7 @@ namespace Saber.Vendors.DataSets
         #region "Data Sets"
         public string GetList(bool owned = true, bool all = true, string search = "")
         {
-            if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
+            if (User.PublicApi || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             try
             {
                 var datasets = Query.DataSets.GetList(owned ? User.UserId : null, all, search);
@@ -26,6 +26,7 @@ namespace Saber.Vendors.DataSets
 
         public string GetPermissions()
         {
+            if (User.PublicApi) { return AccessDenied(); }
             return (CheckSecurity("create-datasets") ? "1" : "0") + "," +
                 (CheckSecurity("edit-datasets") ? "1" : "0") + "," +
                 (CheckSecurity("delete-datasets") ? "1" : "0") + "," +
@@ -35,19 +36,33 @@ namespace Saber.Vendors.DataSets
 
         public string GetCreateForm()
         {
-            if (!CheckSecurity("create-datasets")) { return AccessDenied(); }
+            if (User.PublicApi || !CheckSecurity("create-datasets")) { return AccessDenied(); }
             return Cache.LoadFile("/Vendors/DataSets/create.html");
         }
 
-        public string GetUpdateInfoForm()
+        public string GetUpdateInfoForm(int datasetId)
         {
-            if (!CheckSecurity("edit-datasets")) { return AccessDenied(); }
-            return Cache.LoadFile("/Vendors/DataSets/update-info.html");
+            if (User.PublicApi || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
+            if (!IsOwner(datasetId)) { return AccessDenied("You do not have access to this dataset"); }
+            var view = new View("/Vendors/DataSets/update.html");
+            var dataset = Query.DataSets.GetInfo(datasetId);
+            view["name"] = dataset.label;
+            view["description"] = dataset.description;
+            if (dataset.userId.HasValue) { view.Show("isprivate"); }
+            return view.Render();
+        }
+
+        public string UpdateInfo(int datasetId, string name, string description, bool isprivate)
+        {
+            if (User.PublicApi || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
+            if (!IsOwner(datasetId)) { return AccessDenied("You do not have access to this dataset"); }
+            Query.DataSets.UpdateInfo(datasetId, isprivate == true ? User.UserId : null, name, description);
+            return Success();
         }
 
         public string LoadColumns(string partial)
         {
-            if (!CheckSecurity("create-datasets")) { return AccessDenied(); }
+            if (User.PublicApi || !CheckSecurity("create-datasets")) { return AccessDenied(); }
             //generate a form based on all the mustache variables & mustache components in the partial view.
             //add extra forms for each List component in order to create sub-data sets.
             var html = new StringBuilder();
@@ -108,7 +123,7 @@ namespace Saber.Vendors.DataSets
 
         public string Create(string name, string partial, string description, List<Query.Models.DataSets.Column> columns, bool isprivate = false)
         {
-            if (!CheckSecurity("create-datasets")) { return AccessDenied(); }
+            if (User.PublicApi || !CheckSecurity("create-datasets")) { return AccessDenied(); }
             if(columns == null || columns.Count <= 0 || columns[0].Name == null || columns[0].Name == "") { return Error("No columns were defined"); }
             try
             {
@@ -121,18 +136,10 @@ namespace Saber.Vendors.DataSets
             }
         }
 
-        public string UpdateInfo(int datasetId, string name, string description)
-        {
-            if (!CheckSecurity("edit-datasets")) { return AccessDenied(); }
-            if(!IsOwner(datasetId)){ return AccessDenied("You do not own this dataset"); }
-            Query.DataSets.UpdateInfo(datasetId, name, description);
-            return Success();
-        }
-
         public string Details(int datasetId, string lang, string search, int start = 1, int length = 50, int searchType = 0)
         {
-            if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
-            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
+            if (User.PublicApi || !CheckSecurity("view-datasets")) { return AccessDenied(); }
+            if (!IsOwner(datasetId)) { return AccessDenied("You do not have access to this dataset"); }
             var orderby = "";
             var data = Query.DataSets.GetRecords(datasetId, start, length, lang, search, (Query.DataSets.SearchType)searchType, orderby);
             var view = new View("/Vendors/DataSets/dataset.html");
@@ -152,7 +159,7 @@ namespace Saber.Vendors.DataSets
                         continue; 
                     }else if((i == 5 && User.IsAdmin))
                     {
-                        header.Append("<td><b>Owner</b></td>");
+                        header.Append("<td class=\"owner\"><b>Owner</b></td>");
                     }
                     else
                     {
@@ -202,8 +209,8 @@ namespace Saber.Vendors.DataSets
 
         public string Delete(int datasetId)
         {
-            if (!CheckSecurity("delete-datasets")) { return AccessDenied(); }
-            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
+            if (User.PublicApi || !CheckSecurity("delete-datasets")) { return AccessDenied(); }
+            if (!IsOwner(datasetId)) { return AccessDenied("You do not have access to this dataset"); }
             try
             {
                 Query.DataSets.Delete(datasetId);
@@ -219,7 +226,7 @@ namespace Saber.Vendors.DataSets
         #region "Records"
         public string LoadNewRecordForm(int datasetId)
         {
-            if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
+            if (User.PublicApi || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
             var details = Query.DataSets.GetInfo(datasetId);
             var view = new View("/partials/" + details.partialview);
@@ -228,7 +235,7 @@ namespace Saber.Vendors.DataSets
 
         public string CreateRecord(int datasetId, string lang, Dictionary<string, string> fields, int recordId = 0)
         {
-            if (!CheckSecurity("add-dataset-data")) { return AccessDenied(); }
+            if (User.PublicApi || !CheckSecurity("add-dataset-data")) { return AccessDenied(); }
             if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
             if (fields.Count == 0)
             {
@@ -240,7 +247,7 @@ namespace Saber.Vendors.DataSets
 
         public string GetRecord(int datasetId, int recordId, string lang)
         {
-            if (!CheckSecurity("view-datasets")) { return AccessDenied(); }
+            if (User.PublicApi || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
             var record = Query.DataSets.GetRecords(datasetId, 1, 1, lang, "", Query.DataSets.SearchType.any, "", 0, recordId).FirstOrDefault();
             var fields = new Dictionary<string, string>();
@@ -262,7 +269,7 @@ namespace Saber.Vendors.DataSets
 
         public string UpdateRecord(int datasetId, int recordId, string lang, Dictionary<string, string> fields)
         {
-            if (!CheckSecurity("add-dataset-data")) { return AccessDenied(); }
+            if (User.PublicApi || !CheckSecurity("add-dataset-data")) { return AccessDenied(); }
             if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
             if (fields.Count == 0)
             {
