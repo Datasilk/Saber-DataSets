@@ -14,6 +14,15 @@ namespace Query
             return Sql.ExecuteScalar<int>("DataSet_Create", new { userId, label, partialview, description, columns = Common.Serializer.ToXmlDocument(list).OuterXml });
         }
 
+        public static void UpdateColumns(int datasetId, List<Models.DataSets.Column> columns)
+        {
+            var list = new Models.DataSets.Columns()
+            {
+                Items = columns.ToArray()
+            };
+            Sql.ExecuteNonQuery("DataSet_UpdateColumns", new { datasetId, columns = Common.Serializer.ToXmlDocument(list).OuterXml });
+        }
+
         public static List<Models.DataSet> GetList(int? userId = null, bool all = false, string search = "")
         {
             return Sql.Populate<Models.DataSet>("DataSets_GetList", new { userId, all, search });

@@ -72,7 +72,18 @@ S.editor.datasets = {
                         e2.preventDefault();
                         $('.popup button.apply').hide();
                         //finally, create new dataset and load tab for new dataset
-                        S.editor.datasets.add.finish(name, description, partial, isprivate);
+                        S.ajax.post('Datasets/Create', data,
+                            function (response) {
+                                //load new data set into tab
+                                S.popup.hide();
+                                S.editor.datasets.menu.load(() => {
+                                    S.editor.datasets.records.show(response, partial, name);
+                                });
+
+                            },
+                            function (err) {
+                                S.editor.error('.popup .msg', err.responseText);
+                            });
                     });
                     $('.dataset-columns').css({ width: 500 });
                 },
@@ -80,6 +91,53 @@ S.editor.datasets = {
                     S.editor.error('.popup .msg', err.responseText);
                 }
             );
+        },
+
+        checkPartial: function (datasetId, partial, name) {
+            console.log('check partial');
+            S.ajax.post('DataSets/LoadNewColumns', { datasetId: datasetId }, (response) => {
+                console.log(response);
+                if (response == 'success') {
+                    console.log('show message');
+                    S.editor.message('', 'Successfully checked partial view for new data set columns and found no new columns.');
+                } else {
+                    //display popup with list of dataset columns
+                    S.popup.show('Update Data Set "' + name + '"', response, { className: 'dataset-columns' });
+                    //add event listeners
+                    $('.dataset-columns .save-columns').on('click', (e) => {
+                        //create dataset
+                        e.preventDefault();
+                        $('.popup button.apply').hide();
+                        //finally, update dataset with new columns
+                        var data = {
+                            datasetId: datasetId,
+                            columns: $('.popup .dataset-column').map((i, a) => {
+                                return {
+                                    Name: $(a).find('.column-name').val(),
+                                    DataType: $(a).find('.column-datatype').val(),
+                                    MaxLength: $(a).find('.column-maxlength').val() || '0',
+                                    DefaultValue: $(a).find('.column-default').val() || ''
+                                };
+                            })
+                        };
+                        S.ajax.post('Datasets/UpdateColumns', data,
+                            function () {
+                                //load new data set into tab
+                                S.popup.hide();
+                                S.editor.datasets.menu.load(() => {
+                                    S.editor.datasets.records.show(datasetId, partial, name);
+                                });
+                                S.editor.message('', 'Successfully updated data set with new columns.');
+                            },
+                            function (err) {
+                                S.editor.error('.popup .msg', err.responseText);
+                            });
+                    });
+                    $('.dataset-columns').css({ width: 500 });
+                }
+            }, (err) => {
+                S.editor.error('', err.responseText);
+            });
         }
     },
 
@@ -157,6 +215,11 @@ S.editor.datasets = {
                 $('.dataset-menu .edit-partial').on('click', () => {
                     //load associated partial view in a new tab
                     S.editor.explorer.open('Content/' + partial);
+                });
+
+                $('.dataset-menu .update-partial').on('click', () => {
+                    //check partial view for changes
+                    S.editor.datasets.columns.checkPartial(id, partial, name);
                 });
 
                 $('.dataset-menu .edit-info').on('click', () => {

@@ -40,41 +40,69 @@ namespace Saber.Vendors.DataSets
             return Cache.LoadFile("/Vendors/DataSets/create.html");
         }
 
-        public string GetUpdateInfoForm(int datasetId)
-        {
-            if (User.PublicApi || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
-            if (!IsOwner(datasetId)) { return AccessDenied("You do not have access to this dataset"); }
-            var view = new View("/Vendors/DataSets/update.html");
-            var dataset = Query.DataSets.GetInfo(datasetId);
-            view["name"] = dataset.label;
-            view["description"] = dataset.description;
-            if (dataset.userId.HasValue) { view.Show("isprivate"); }
-            return view.Render();
-        }
-
-        public string UpdateInfo(int datasetId, string name, string description, bool isprivate)
-        {
-            if (User.PublicApi || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
-            if (!IsOwner(datasetId)) { return AccessDenied("You do not have access to this dataset"); }
-            Query.DataSets.UpdateInfo(datasetId, isprivate == true ? User.UserId : null, name, description);
-            return Success();
-        }
-
         public string LoadColumns(string partial)
         {
             if (User.PublicApi || !CheckSecurity("create-datasets")) { return AccessDenied(); }
             //generate a form based on all the mustache variables & mustache components in the partial view.
             //add extra forms for each List component in order to create sub-data sets.
+            string html;
+            try
+            {
+                html = RenderColumns(partial);
+            }catch(Exception ex)
+            {
+                return Error(ex.Message);
+            }
+
+            var viewColumns = new View("/Vendors/DataSets/columns.html");
+            viewColumns["summary"] = "Dataset columns were generated based on the partial view you selected. Please make any data type changes to your columns before continuing.";
+            viewColumns["save-button"] = "Create Dataset";
+            viewColumns["columns"] = html;
+
+            return viewColumns.Render();
+        }
+
+        public string LoadNewColumns(int datasetId)
+        {
+            //used to display new columns for an existing dataset from the associated partial view
+            if (User.PublicApi || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
+            string html;
+            try
+            {
+                //get existing columns
+                var columns = Query.DataSets.GetColumns(datasetId);
+                html = RenderColumns(dataset.partialview, columns.Select(a => a.Name).ToArray());
+            }
+            catch (Exception ex)
+            {
+                //return success since there are no new columns to add to the data set
+                return Success();
+            }
+
+            //show popup modal to allow the user to choose data types for all new columns being added to the data set
+            var viewColumns = new View("/Vendors/DataSets/columns.html");
+            viewColumns["summary"] = "New columns were found based on the partial view associated with this data set. Please make any data type changes to your new columns before continuing.";
+            viewColumns["save-button"] = "Update Dataset";
+            viewColumns["columns"] = html;
+
+            return viewColumns.Render();
+        }
+
+        private string RenderColumns(string partial, string[] excludeColumns = null)
+        {
             var html = new StringBuilder();
             var view = new View("/Content/" + partial);
             var viewColumn = new View("/Vendors/DataSets/column-field.html");
             var cols = 0;
-            for(var x = 0; x < view.Elements.Count; x++)
+            for (var x = 0; x < view.Elements.Count; x++)
             {
                 var elem = view.Elements[x];
-                if(elem.Name == "") { continue; }
-                if(Core.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0)) { continue; }
-                if(elem.Name.Substring(0, 1) == "/") { continue; }
+                //check if we should skip element
+                if (elem.Name == "" || elem.Name.Substring(0, 1) == "/" ||
+                    excludeColumns.Any(a => elem.Name.IndexOf(a) == 0) ||
+                    Core.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0)) { continue; }
+                //render column
                 viewColumn.Clear();
                 viewColumn["id"] = elem.Name.ToLower();
                 viewColumn["name"] = elem.Name;
@@ -88,7 +116,7 @@ namespace Saber.Vendors.DataSets
                 else
                 {
                     var datatype = ContentFields.GetFieldType(view, x);
-                    if(datatype == ContentFields.FieldType.image)
+                    if (datatype == ContentFields.FieldType.image)
                     {
                         viewColumn.Show("datatype-image");
                     }
@@ -103,22 +131,16 @@ namespace Saber.Vendors.DataSets
                 cols++;
             }
 
-            foreach(var elem in view.Elements.Where(a => !a.isBlock && a.Name.StartsWith("list")))
+            foreach (var elem in view.Elements.Where(a => !a.isBlock && a.Name.StartsWith("list")))
             {
                 //TODO: get all views from list components and include them in the form
             }
 
-            if(cols == 0)
+            if (cols == 0)
             {
-                return Error("No mustache variables could be found within the selected partial view.");
+                throw new Exception("No mustache variables could be found within the selected partial view.");
             }
-
-            var viewColumns = new View("/Vendors/DataSets/columns.html");
-            viewColumns["summary"] = "Dataset columns were generated based on the partial view you selected. Please make any data type changes to your columns before continuing.";
-            viewColumns["save-button"] = "Create Dataset";
-            viewColumns["columns"] = html.ToString();
-
-            return viewColumns.Render();
+            return html.ToString();
         }
 
         public string Create(string name, string partial, string description, List<Query.Models.DataSets.Column> columns, bool isprivate = false)
@@ -136,10 +158,26 @@ namespace Saber.Vendors.DataSets
             }
         }
 
+        public string UpdateColumns(int datasetId, List<Query.Models.DataSets.Column> columns)
+        {
+            if (User.PublicApi || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
+            if (columns == null || columns.Count <= 0 || columns[0].Name == null || columns[0].Name == "") { return Error("No columns were defined"); }
+            try
+            {
+                Query.DataSets.UpdateColumns(datasetId, columns);
+                return Success();
+            }
+            catch (Exception ex)
+            {
+                return Error(ex.Message);
+            }
+        }
+
         public string Details(int datasetId, string lang, string search, int start = 1, int length = 50, int searchType = 0)
         {
             if (User.PublicApi || !CheckSecurity("view-datasets")) { return AccessDenied(); }
-            if (!IsOwner(datasetId)) { return AccessDenied("You do not have access to this dataset"); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
             var orderby = "";
             var data = Query.DataSets.GetRecords(datasetId, start, length, lang, search, (Query.DataSets.SearchType)searchType, orderby);
             var view = new View("/Vendors/DataSets/dataset.html");
@@ -207,10 +245,29 @@ namespace Saber.Vendors.DataSets
             return view.Render();
         }
 
+        public string GetUpdateInfoForm(int datasetId)
+        {
+            if (User.PublicApi || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
+            var view = new View("/Vendors/DataSets/update.html");
+            view["name"] = dataset.label;
+            view["description"] = dataset.description;
+            if (dataset.userId.HasValue) { view.Show("isprivate"); }
+            return view.Render();
+        }
+
+        public string UpdateInfo(int datasetId, string name, string description, bool isprivate)
+        {
+            if (User.PublicApi || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
+            Query.DataSets.UpdateInfo(datasetId, isprivate == true ? User.UserId : null, name, description);
+            return Success();
+        }
+
         public string Delete(int datasetId)
         {
             if (User.PublicApi || !CheckSecurity("delete-datasets")) { return AccessDenied(); }
-            if (!IsOwner(datasetId)) { return AccessDenied("You do not have access to this dataset"); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
             try
             {
                 Query.DataSets.Delete(datasetId);
@@ -227,7 +284,7 @@ namespace Saber.Vendors.DataSets
         public string LoadNewRecordForm(int datasetId)
         {
             if (User.PublicApi || !CheckSecurity("view-datasets")) { return AccessDenied(); }
-            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not own this dataset"); }
             var details = Query.DataSets.GetInfo(datasetId);
             var view = new View("/partials/" + details.partialview);
             return ContentFields.RenderForm(this, details.label, view, User.Language, ".popup.new-record-for-" + datasetId, new Dictionary<string, string>());
@@ -236,7 +293,7 @@ namespace Saber.Vendors.DataSets
         public string CreateRecord(int datasetId, string lang, Dictionary<string, string> fields, int recordId = 0)
         {
             if (User.PublicApi || !CheckSecurity("add-dataset-data")) { return AccessDenied(); }
-            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not own this dataset"); }
             if (fields.Count == 0)
             {
                 return Error("No fields were included when trying to create a new record");
@@ -248,7 +305,7 @@ namespace Saber.Vendors.DataSets
         public string GetRecord(int datasetId, int recordId, string lang)
         {
             if (User.PublicApi || !CheckSecurity("view-datasets")) { return AccessDenied(); }
-            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not own this dataset"); }
             var record = Query.DataSets.GetRecords(datasetId, 1, 1, lang, "", Query.DataSets.SearchType.any, "", 0, recordId).FirstOrDefault();
             var fields = new Dictionary<string, string>();
             if(record == null && lang != "en")
@@ -270,7 +327,7 @@ namespace Saber.Vendors.DataSets
         public string UpdateRecord(int datasetId, int recordId, string lang, Dictionary<string, string> fields)
         {
             if (User.PublicApi || !CheckSecurity("add-dataset-data")) { return AccessDenied(); }
-            if (!IsOwner(datasetId)) { return AccessDenied("You do not own this dataset"); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not own this dataset"); }
             if (fields.Count == 0)
             {
                 return Error("No fields were included when trying to update an existing record");
@@ -282,9 +339,9 @@ namespace Saber.Vendors.DataSets
 
         #region "Helpers"
 
-        private bool IsOwner(int datasetId)
+        private bool IsOwner(int datasetId, out Query.Models.DataSet dataset)
         {
-            var dataset = Query.DataSets.GetInfo(datasetId);
+            dataset = Query.DataSets.GetInfo(datasetId);
             if (User.IsAdmin == true || (dataset.userId.HasValue && dataset.userId == User.UserId))
             {
                 return true;
