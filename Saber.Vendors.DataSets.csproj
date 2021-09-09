@@ -17,6 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Saber.Core" Version="1.0.7.1" />
+    <PackageReference Include="Saber.Core" Version="1.0.7.2" />
   </ItemGroup>
 </Project>

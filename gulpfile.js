@@ -11,7 +11,7 @@ function publishToPlatform(platform) {
     return gulp.src([
         //include custom resources
         'column-field.html', 'columns.html', 'create.html', 'dataset.html', 'datasource-filter.html', 'editor.js', 'editor.less', 'icons.svg',
-        'record-menu.html', 'update-info.html'
+        'record-menu.html', 'update.html',
         //include all files from published folder
         release + platform + '/publish/*',
         //exclude unwanted dependencies
