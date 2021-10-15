@@ -72,18 +72,7 @@ S.editor.datasets = {
                         e2.preventDefault();
                         $('.popup button.apply').hide();
                         //finally, create new dataset and load tab for new dataset
-                        S.ajax.post('Datasets/Create', data,
-                            function (response) {
-                                //load new data set into tab
-                                S.popup.hide();
-                                S.editor.datasets.menu.load(() => {
-                                    S.editor.datasets.records.show(response, partial, name);
-                                });
-
-                            },
-                            function (err) {
-                                S.editor.error('.popup .msg', err.responseText);
-                            });
+                        S.editor.datasets.add.finish(name, description, partial, isprivate);
                     });
                     $('.dataset-columns').css({ width: 500 });
                 },

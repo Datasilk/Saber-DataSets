@@ -7,7 +7,7 @@ using Saber.Vendor;
 
 namespace Saber.Vendors.DataSets
 {
-    public class DataSets : Service, IVendorService
+    public class DataSets : Core.Service, IVendorService
     {
         #region "Data Sets"
         public string GetList(bool owned = true, bool all = true, string search = "")
@@ -100,7 +100,7 @@ namespace Saber.Vendors.DataSets
                 var elem = view.Elements[x];
                 //check if we should skip element
                 if (elem.Name == "" || elem.Name.Substring(0, 1) == "/" ||
-                    excludeColumns.Any(a => elem.Name.IndexOf(a) == 0) ||
+                    (excludeColumns != null && excludeColumns.Any(a => elem.Name.IndexOf(a) == 0)) ||
                     Core.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0)) { continue; }
                 //render column
                 viewColumn.Clear();
@@ -213,8 +213,8 @@ namespace Saber.Vendors.DataSets
                     rows.Append("<tr data-id=\"" + recordId + "\">");
                     i = 0;
                     viewMenu.Clear();
-                    var username = item["username"].ToString();
-                    var useremail = item["useremail"].ToString();
+                    var username = item.ContainsKey("username") && item["username"] != null ? item["username"].ToString() : "";
+                    var useremail = item.ContainsKey("useremail") && item["useremail"] != null ? item["useremail"].ToString() : "";
                     foreach (var col in item)
                     {
                         i++;
@@ -351,6 +351,7 @@ namespace Saber.Vendors.DataSets
 
         private string ConvertFieldToString(object item)
         {
+            if(item == null) { return ""; }
             var value = "";
             var type = item.GetType();
             if (type.Name == "String" || type == typeof(Int32) || type == typeof(decimal) || type == typeof(float))
