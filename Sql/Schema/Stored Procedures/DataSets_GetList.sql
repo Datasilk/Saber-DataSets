@@ -1,6 +1,7 @@
 ﻿CREATE PROCEDURE [dbo].[DataSets_GetList]
 	@userId int NULL = NULL,
 	@all bit = 0,
+	@noadmin bit = 0,
 	@search nvarchar(MAX)
 AS
 	DECLARE @isadmin bit = 0
@@ -16,15 +17,12 @@ AS
 		(
 			@userId IS NOT NULL
 			AND (
-				(@all = 1 AND (userId IS NULL OR userId = @userId))
-				OR (@all = 0 AND userId = @userId)
+				(@all = 1 AND (userId IS NULL OR userId = @userId OR @noadmin = 1))
+				OR (@all = 0 AND (userId = @userId OR @noadmin = 1))
 			)
 		)
-		OR
-		(
-			@isadmin = 1 --Admin account
-			AND @all = 1
-		)
+		OR (@isadmin = 1 AND @all = 1)
+		OR (@noadmin = 1 AND @all = 1)
 		OR
 		(
 			@userId IS NULL 

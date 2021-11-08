@@ -76,7 +76,7 @@ SET NOCOUNT ON
 		DEALLOCATE @cursor
 
 		--finally, execute SQL string
-		SET @sql += ' WHERE Id=' + CONVERT(nvarchar(16), @recordId) + ' AND lang=''' + @lang + ''''
+		SET @sql += ', datemodified=GETUTCDATE() WHERE Id=' + CONVERT(nvarchar(16), @recordId) + ' AND lang=''' + @lang + ''''
 		EXEC sp_executesql @sql
 		
 	END ELSE BEGIN

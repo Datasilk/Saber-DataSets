@@ -4,7 +4,7 @@
         <div class="row text pad-top-sm"><b>{{name}}</b></div>
         <input type="hidden" class="column-name" value="{{name}}" />
     </div>
-    <div class="col two">
+    <div class="col three">
         <div class="row field faded">Data Type</div>
         {{datatype}}
         <div class="row input">
@@ -13,6 +13,8 @@
                 <option value="number">Number</option>
                 <option value="decimal">Decimal</option>
                 <option value="datetime">Date/Time</option>
+                <option value="relationship">Relationship</option>
+                <option value="list">List</option>
             </select>
         </div>
         {{/datatype}}
@@ -22,36 +24,62 @@
             <input type="hidden" class="column-datatype" value="bit" />
         </div>
         {{/datatype-bit}}
-        {{datatype-image}}
+        {{datatype-list}}
         <div class="row text">
-            <span>Image</span>
-            <input type="hidden" class="column-datatype" value="image" />
+            <span>List</span>
+            <input type="hidden" class="column-datatype" value="list" />
+        </div>
+        {{/datatype-list}}
+        {{datatype-image}}
+        <div class="row input">
+            <select id="datatype_{{id}}" class="column-datatype">
+                <option value="image">Image</option>
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="decimal">Decimal</option>
+                <option value="datetime">Date/Time</option>
+                <option value="relationship">Relationship</option>
+            </select>
         </div>
         {{/datatype-image}}
     </div>
-    <div class="col two">
-        {{maxlength}}
-        <div class="row field faded">Max Length</div>
-        <div class="row input">
-            <input type="number" id="maxlength_{{id}}" class="column-maxlength" maxlength="3" value="0" />
+    <div class="col five column-details">
+        <div class="col six">
+            {{maxlength}}
+            <div class="row field faded">Max Length</div>
+            <div class="row input">
+                <input type="number" id="maxlength_{{id}}" class="column-maxlength" maxlength="3" value="0" />
+            </div>
+            {{/maxlength}}
         </div>
-        {{/maxlength}}
+        <div class="col six">
+            {{default-text}}
+            <div class="row field faded">Default Value</div>
+            <div class="row input">
+                <input type="text" id="defaultvalue_{{id}}" class="column-default" placeholder="optional" />
+            </div>
+            {{/default-text}}
+            {{default-bit}}
+            <div class="row field faded">Default Value</div>
+            <div class="row input">
+                <select id="defaultvalue_{{id}}" class="column-default">
+                    <option value="0">Hide</option>
+                    <option value="1">Show</option>
+                </select>
+            </div>
+            {{/default-bit}}
+        </div>
     </div>
-    <div class="col four">
-        {{default-text}}
-        <div class="row field faded">Default Value</div>
+    <div class="col five column-relationship" style="display:none;">
+        <div class="row field faded">Data Set</div>
         <div class="row input">
-            <input type="text" id="defaultvalue_{{id}}" class="column-default" placeholder="optional" />
-        </div>
-        {{/default-text}}
-        {{default-bit}}
-        <div class="row field faded">Default Value</div>
-        <div class="row input">
-            <select id="defaultvalue_{{id}}" class="column-default">
-                <option value="0">Hide</option>
-                <option value="1">Show</option>
+            <select id="dataset_{{id}}" class="column-dataset" title="Parent Data Set that will load relationship data into a List Component">
+                {{options-datasources}}
             </select>
         </div>
-        {{/default-bit}}
+        <div class="row field faded">List Component</div>
+        <div class="row input">
+            <select id="listname_{{id}}" class="column-listname" title="List component contained within selected Data Set's Partial View"></select>
+        </div>
     </div>
 </div>

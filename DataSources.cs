@@ -12,11 +12,12 @@ namespace Saber.Vendors.DataSets
 
         public string Vendor { get; set; } = "Data Set";
         public string Prefix { get; set; } = "dataset";
+        public string Description { get; set; } = "Create database tables, columns of various data types, and rows of data from within Saber's Editor, then use your tables as data sources.";
 
         public List<KeyValuePair<string, string>> List()
         {
             //get list of available Data Sets as data sources
-            var datasets = Query.DataSets.GetList();
+            var datasets = Query.DataSets.GetList(null, true, true);
             return datasets.Select(a => new KeyValuePair<string, string>(a.datasetId.ToString(), a.label)).ToList();
         }
 

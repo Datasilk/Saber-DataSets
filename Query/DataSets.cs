@@ -23,9 +23,9 @@ namespace Query
             Sql.ExecuteNonQuery("DataSet_UpdateColumns", new { datasetId, columns = Common.Serializer.ToXmlDocument(list).OuterXml });
         }
 
-        public static List<Models.DataSet> GetList(int? userId = null, bool all = false, string search = "")
+        public static List<Models.DataSet> GetList(int? userId = null, bool all = false, bool noadmin = false, string search = "")
         {
-            return Sql.Populate<Models.DataSet>("DataSets_GetList", new { userId, all, search });
+            return Sql.Populate<Models.DataSet>("DataSets_GetList", new { userId, all, noadmin, search });
         }
 
         public enum SearchType
@@ -90,6 +90,16 @@ namespace Query
         {
             Sql.ExecuteNonQuery("DataSet_Delete", new { datasetId });
         }
-        
+
+        #region "Relationships"
+        public static class Relationships
+        {
+            public static List<Models.DatasetRelationship> GetList(int parentId)
+            {
+                return Sql.Populate<Models.DatasetRelationship>("Datasets_Relationships_GetList", new { parentId });
+            }
+        }
+        #endregion
+
     }
 }

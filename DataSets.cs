@@ -9,14 +9,16 @@ namespace Saber.Vendors.DataSets
 {
     public class DataSets : Core.Service, IVendorService
     {
+        private string[] ExcludedFields = new string[]{"id", "lang", "datecreated", "datemodified"};
+
         #region "Data Sets"
         public string GetList(bool owned = true, bool all = true, string search = "")
         {
             if (IsPublicApiRequest || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             try
             {
-                var datasets = Query.DataSets.GetList(owned ? User.UserId : null, all, search);
-                return JsonResponse(datasets.Select(a => new { a.datasetId, a.label, a.partialview, a.description }));
+                var datasets = Query.DataSets.GetList(owned ? User.UserId : null, all, false, search);
+                return JsonResponse(datasets.Select(a => new { a.datasetId, a.tableName, a.label, a.partialview, a.description }));
             }
             catch (Exception)
             {
@@ -48,7 +50,7 @@ namespace Saber.Vendors.DataSets
             string html;
             try
             {
-                html = RenderColumns(partial);
+                html = RenderColumns(partial, new[] { "id", "lang", "userId", "datecreated", "datemodified" });
             }catch(Exception ex)
             {
                 return Error(ex.Message);
@@ -71,8 +73,13 @@ namespace Saber.Vendors.DataSets
             try
             {
                 //get existing columns
-                var columns = Query.DataSets.GetColumns(datasetId);
-                html = RenderColumns(dataset.partialview, columns.Select(a => a.Name).ToArray());
+                var columns = Query.DataSets.GetColumns(datasetId).Select(a => a.Name).ToList();
+                columns.Add("id");
+                columns.Add("lang");
+                columns.Add("userid");
+                columns.Add("datecreated");
+                columns.Add("datemodified");
+                html = RenderColumns(dataset.partialview, columns.ToArray());
             }
             catch (Exception ex)
             {
@@ -95,30 +102,53 @@ namespace Saber.Vendors.DataSets
             var view = new View("/Content/" + partial);
             var viewColumn = new View("/Vendors/DataSets/column-field.html");
             var cols = 0;
+            var fieldElementInfo = new List<Models.ContentFieldElementInfo>();
+            var optionsHtml = new StringBuilder("<option value=\"\" selected=\"selected\">[Select A Data Set]</option>");
+            foreach (var dataset in Query.DataSets.GetList(null, true, true))
+            {
+                optionsHtml.Append("<option value=\"" + dataset.datasetId + "\">" + dataset.label + "</option>");
+            }
+            var optionsDataSources = optionsHtml.ToString();
+
+
             for (var x = 0; x < view.Elements.Count; x++)
             {
                 var elem = view.Elements[x];
+                fieldElementInfo.Add(new Models.ContentFieldElementInfo()
+                {
+                    Type = ContentFields.FieldType.text
+                });
+                var elemInfo = fieldElementInfo[^1];
                 //check if we should skip element
                 if (elem.Name == "" || elem.Name.Substring(0, 1) == "/" ||
                     (excludeColumns != null && excludeColumns.Any(a => elem.Name.IndexOf(a) == 0)) ||
-                    Core.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0)) { continue; }
+                    Core.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0 && elem.Name.IndexOf("list-") != 0) ||
+                    fieldElementInfo.Any(a => a.Name == elem.Name)) { continue; }
+                
                 //render column
                 viewColumn.Clear();
                 viewColumn["id"] = elem.Name.ToLower();
                 viewColumn["name"] = elem.Name;
+                viewColumn["options-datasources"] = optionsDataSources;
+                elemInfo.Name = elem.Name;
+
                 if (elem.isBlock)
                 {
                     viewColumn.Show("datatype-bit");
-                    viewColumn["id"] = elem.Name.ToLower();
-                    viewColumn["name"] = elem.Name;
                     viewColumn.Show("default-bit");
                 }
                 else
                 {
-                    var datatype = ContentFields.GetFieldType(view, x);
+                    var datatype = ContentFields.GetFieldType(view, x, fieldElementInfo);
+                    elemInfo.Type = datatype;
                     if (datatype == ContentFields.FieldType.image)
                     {
                         viewColumn.Show("datatype-image");
+                    }
+                    else if(datatype == ContentFields.FieldType.list)
+                    {
+                        viewColumn.Show("datatype-list");
+                        viewColumn.Show("default-list");
                     }
                     else
                     {
@@ -184,8 +214,30 @@ namespace Saber.Vendors.DataSets
             var viewMenu = new View("/Vendors/DataSets/record-menu.html");
             var header = new StringBuilder();
             var rows = new StringBuilder();
+            var partial = new View("/Content/" + dataset.partialview);
+            var lists = partial.Elements.Where(a => a.Name == "list" || a.Name.IndexOf("list-") == 0).Select(a => a.Name.Replace("-", "_")).ToList();
+
+            //load relationship data sets list
+            var relationships = Query.DataSets.Relationships.GetList(datasetId);
+            if(relationships != null && relationships.Count > 0)
+            {
+                var html = new StringBuilder();
+                var viewRelationship = new View("/Vendors/DataSets/relationship.html");
+                foreach(var rel in relationships)
+                {
+                    viewRelationship.Clear();
+                    viewRelationship["id"] = rel.childId;
+                    viewRelationship["name"] = rel.childLabel;
+                    html.Append(viewRelationship.Render());
+                }
+                view.Show("has-relationships");
+                view["relationships"] = html.ToString();
+            }
+
+            //load list of records
             if(data.Count > 0)
             {
+                //generate table header
                 var i = 0;
                 foreach (var item in data.First())
                 {
@@ -199,12 +251,18 @@ namespace Saber.Vendors.DataSets
                     {
                         header.Append("<td class=\"owner\"><b>Owner</b></td>");
                     }
+                    else if (lists.Any(a => a == item.Key))
+                    {
+                        //do not show any list data
+                    }
                     else
                     {
                         header.Append("<td>" + item.Key + "</td>");
                     }
                 }
                 view["table-head"] = header.ToString();
+
+                //generate table rows
                 foreach (var item in data)
                 {
                     //load column values for each dataset record
@@ -226,6 +284,10 @@ namespace Saber.Vendors.DataSets
                         {
                             //display user information to Admin
                             rows.Append("<td class=\"no-details\"><a href=\"javascript:\" onclick=\"S.editor.datasets.viewOwner(event, " + col.Value + ",'" + useremail + "')\">" + username + "</a></td>");
+                        }
+                        else if (lists.Any(a => a == col.Key))
+                        {
+                            //do not show any list data
                         }
                         else
                         {
@@ -278,6 +340,29 @@ namespace Saber.Vendors.DataSets
                 return Error("Could not delete Data Set");
             }
         }
+
+        public string ListComponents(int datasetId)
+        {
+            if (IsPublicApiRequest || !CheckSecurity("view-datasets")) { return AccessDenied(); }
+            try
+            {
+                var dataset = Query.DataSets.GetInfo(datasetId);
+                var view = new View("/Content/" + dataset.partialview);
+                var lists = new List<string>();
+                foreach(var elem in view.Elements)
+                {
+                    if(elem.Name == "list" || elem.Name.IndexOf("list-") == 0)
+                    {
+                        lists.Add(elem.Name);
+                    }
+                }
+                return JsonResponse(lists);
+            }
+            catch (Exception)
+            {
+                return Error("Could not retrieve list components for data set ID " + datasetId);
+            }
+        }
         #endregion
 
         #region "Records"
@@ -287,7 +372,7 @@ namespace Saber.Vendors.DataSets
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not own this dataset"); }
             var details = Query.DataSets.GetInfo(datasetId);
             var view = new View("/partials/" + details.partialview);
-            return ContentFields.RenderForm(this, details.label, view, User.Language, ".popup.new-record-for-" + datasetId, new Dictionary<string, string>());
+            return ContentFields.RenderForm(this, details.label, view, User.Language, ".popup.new-record-for-" + datasetId, new Dictionary<string, string>(), ExcludedFields);
         }
 
         public string CreateRecord(int datasetId, string lang, Dictionary<string, string> fields, int recordId = 0)

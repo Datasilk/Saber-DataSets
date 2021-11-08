@@ -6,4 +6,4 @@ AS
 	SELECT c.[name] AS [Name]
 	FROM sys.columns c
 	WHERE c.object_id = OBJECT_ID('DataSet_' + @tableName)
-	AND c.[name] NOT IN ('id', 'lang', 'userId')
+	AND c.[name] NOT IN ('id', 'lang', 'userId', 'datecreated', 'datemodified')

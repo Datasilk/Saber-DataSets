@@ -47,9 +47,10 @@ SET NOCOUNT ON
 		(CASE WHEN @recordId > 0 THEN CONVERT(nvarchar(16), @recordId) 
 		ELSE '0; SET @newId = NEXT VALUE FOR Sequence_DataSet_' + @tableName END) + ';'
 
-	DECLARE @sql nvarchar(MAX) = @newId + 'INSERT INTO DataSet_' + @tableName + ' (Id, lang, userId, ',
+	DECLARE @sql nvarchar(MAX) = @newId + 'INSERT INTO DataSet_' + @tableName + ' (Id, lang, userId, datecreated, datemodified, ',
 	@values nvarchar(MAX) = 'VALUES (@newId, ''' + @lang + ''', ' + 
-		(CASE WHEN @userId IS NULL THEN 'NULL, ' ELSE CONVERT(nvarchar(16), @userId) + ', ' END),
+		(CASE WHEN @userId IS NULL THEN 'NULL' ELSE CONVERT(nvarchar(16), @userId) END) +
+		', GETUTCDATE(), GETUTCDATE(), ',
 	@name nvarchar(64), @value nvarchar(MAX), 
 	@cursor CURSOR, @datatype varchar(16)
 

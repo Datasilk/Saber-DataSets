@@ -9,6 +9,7 @@
 			<column name="label" datatype="text" maxlength="64"></column>
 			<column name="description" datatype="text" maxlength="max"></column>
 			<column name="datecreated" datatype="datetime" default="now"></column>
+			<column name="list-team" datatype="list" default=""></column>
 		</columns>
 	*/
 AS
@@ -17,43 +18,55 @@ AS
 
 		--first, create a new sequence for the dataset
 		DECLARE @sql nvarchar(MAX) = 'CREATE SEQUENCE [dbo].[Sequence_DataSet_' + @tableName + '] AS BIGINT START WITH 1 INCREMENT BY 1 NO CACHE'
-		EXECUTE sp_executesql @sql
+		IF NOT EXISTS(SELECT * FROM sys.objects WHERE object_id = OBJECT_ID('[dbo].[Sequence_DataSet_' + @tableName + ']') AND [type] = 'SO') BEGIN
+			EXECUTE sp_executesql @sql
+		END
+		
 
 
 		--create a new table for this dataset
-		SET @sql = 'CREATE TABLE [dbo].[DataSet_' + @tablename + '] (Id INT, lang NVARCHAR(16), userId int NOT NULL DEFAULT 1, '
+		SET @sql = 'CREATE TABLE [dbo].[DataSet_' + @tablename + '] (Id INT, lang NVARCHAR(16), userId int NOT NULL DEFAULT 1, ' + 
+					'datecreated DATETIME2(7), datemodified DATETIME2(2), '
 		DECLARE @sqlVars nvarchar(MAX) = ''
 		DECLARE @sqlVals nvarchar(MAX) = ''
-		DECLARE @indexes nvarchar(MAX) = ''
-		
+		DECLARE @indexes nvarchar(MAX) = 'CREATE INDEX [IX_DataSet_' + @tableName + '_DateCreated] ON [dbo].[DataSet_' + @tableName + '] ([datecreated])' +
+					'CREATE INDEX [IX_DataSet_' + @tableName + '_DateModified] ON [dbo].[DataSet_' + @tableName + '] ([datemodified])'
+		DECLARE @relationships nvarchar(MAX) = ''
+
 		DECLARE @hdoc INT
 		DECLARE @cols TABLE (
 			[name] nvarchar(32),
 			datatype varchar(32),
 			[maxlength] varchar(32),
-			[default] varchar(32)
+			[default] varchar(32),
+			[dataset] varchar(32),
+			[listname] varchar(32)
 		)
 		EXEC sp_xml_preparedocument @hdoc OUTPUT, @columns;
 
 		/* create new addressbook entries based on email list */
 		INSERT INTO @cols
-		SELECT x.[name], x.datatype, x.[maxlength], x.[default]
+		SELECT x.[name], x.datatype, x.[maxlength], x.[default], x.[dataset], x.[listname]
 		FROM (
 			SELECT * FROM OPENXML( @hdoc, '//column', 2)
 			WITH (
 				[name] nvarchar(32) '@name',
 				datatype nvarchar(32) '@datatype',
 				[maxlength] nvarchar(32) '@maxlength',
-				[default] nvarchar(32) '@default'
+				[default] nvarchar(32) '@default',
+				[dataset] nvarchar(32) '@dataset',
+				[listname] nvarchar(32) '@listname'
 			)
 		) AS x
 	
 		DECLARE @cursor CURSOR 
-		DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), @default nvarchar(32)
+		DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), 
+			@default nvarchar(32), @dataset nvarchar(32), @listname nvarchar(32),
+			@newname nvarchar(32)
 		SET @cursor = CURSOR FOR
-		SELECT [name], [datatype],[maxlength], [default] FROM @cols
+		SELECT [name], [datatype],[maxlength], [default], [dataset], [listname] FROM @cols
 		OPEN @cursor
-		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default
+		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
 		WHILE @@FETCH_STATUS = 0 BEGIN
 			SET @maxlength = ISNULL(@maxlength, '64')
 			IF @maxlength = '0' SET @maxlength = 'MAX'
@@ -81,7 +94,16 @@ AS
 				SET @sql = @sql + '[' + @name + '] DATETIME2(7) ' + CASE WHEN @default = 'now' THEN 'NOT NULL DEFAULT GETUTCDATE()' ELSE 'NULL' END
 				SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 			END
-			FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default
+			IF @datatype = 'relationship' BEGIN
+				SET @sql = @sql + '[' + @name + '] INT NOT NULL DEFAULT 0'
+				SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
+				SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=' + @dataset + ', @childId=#datasetId#, @parentList=''' + @listName + ''', @childColumn=''' + @name + '''' + CHAR(13) 
+			END
+			IF @datatype = 'list' BEGIN
+				SET @newname = REPLACE(@name, '-', '_')
+				SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL'
+			END
+			FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
 			SET @sql = @sql + ', '
 		END
 		CLOSE @cursor
@@ -99,5 +121,14 @@ AS
 		INSERT INTO DataSets (userId, [label], tableName, partialview, [description], datecreated, deleted)
 		VALUES (@userId, @label, @tablename, @partialview, @description, GETUTCDATE(), 0)
 
-		SELECT datasetId FROM DataSets WHERE tableName=@tablename
+		DECLARE @datasetId int
+		SELECT @datasetId = datasetId FROM DataSets WHERE tableName=@tablename
+		
+		IF @relationships != '' BEGIN
+			DECLARE @finalsql nvarchar(MAX) = REPLACE(@relationships, '#datasetId#', CONVERT(nvarchar(MAX), @datasetId))
+			EXECUTE sp_executesql @finalsql
+		END
+
+		SELECT @datasetId
+
 	END

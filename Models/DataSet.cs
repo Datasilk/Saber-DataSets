@@ -35,6 +35,10 @@ namespace Query.Models.DataSets
         public string MaxLength { get; set; }
         [XmlAttribute("default")]
         public string DefaultValue { get; set; }
+        [XmlAttribute("dataset")]
+        public string Dataset { get; set; }
+        [XmlAttribute("listname")]
+        public string ListName { get; set; }
     }
 
     public enum DataType

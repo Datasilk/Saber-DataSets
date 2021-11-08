@@ -1,4 +1,12 @@
 ﻿<div class="row pad-top-lg">
+    {{has-relationships}}
+    <div class="row pad-bottom">
+        <div class="col pad">
+            <b>Relationships:</b>
+        </div>
+        {{relationships}}
+    </div>
+    {{/has-relationships}}
     {{has-rows}}
     <table class="spreadsheet records">
         <thead><tr>{{table-head}}<td></td></tr></thead>

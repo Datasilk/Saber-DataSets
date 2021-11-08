@@ -39,7 +39,9 @@ S.editor.datasets = {
                         Name: $(a).find('.column-name').val(),
                         DataType: $(a).find('.column-datatype').val(),
                         MaxLength: $(a).find('.column-maxlength').val() || '0',
-                        DefaultValue: $(a).find('.column-default').val() || ''
+                        DefaultValue: $(a).find('.column-default').val() || '',
+                        Dataset: $(a).find('.column-dataset').val() || '',
+                        ListName: $(a).find('.column-listname').val() || ''
                     };
                 })
             };
@@ -67,6 +69,7 @@ S.editor.datasets = {
                     S.popup.hide();
                     S.popup.show('Configure Data Set "' + name + '"', response, { className: 'dataset-columns' });
                     //add event listeners
+                    S.editor.datasets.columns.initForm();
                     $('.dataset-columns .save-columns').on('click', (e2) => {
                         //create dataset
                         e2.preventDefault();
@@ -82,6 +85,37 @@ S.editor.datasets = {
             );
         },
 
+        initForm: function () {
+            $('.popup .column-datatype').on('input', (e) => {
+                var target = $(e.target);
+                var parent = target.parents('.dataset-column').first();
+                if (target.val() == 'relationship') {
+                    parent.find('.column-details').hide();
+                    parent.find('.column-relationship').show();
+                } else {
+                    parent.find('.column-details').show();
+                    parent.find('.column-relationship').hide();
+                }
+            });
+
+            $('.popup .column-dataset').on('input', (e) => {
+                var target = $(e.target);
+                var parent = target.parents('.dataset-column').first();
+                var data = { datasetId: target.val() };
+                S.ajax.post('DataSets/ListComponents', data, (response) => {
+                    var list = JSON.parse(response);
+                    console.log(list);
+                    var options = '';
+                    for (var x = 0; x < list.length; x++) {
+                        var item = list[x];
+                        options += '<option value="' + item + '">' + item + '</option>';
+                    }
+                    console.log(parent);
+                    parent.find('.column-listname').html(options);
+                });
+            });
+        },
+
         checkPartial: function (datasetId, partial, name) {
             console.log('check partial');
             S.ajax.post('DataSets/LoadNewColumns', { datasetId: datasetId }, (response) => {
@@ -93,6 +127,7 @@ S.editor.datasets = {
                     //display popup with list of dataset columns
                     S.popup.show('Update Data Set "' + name + '"', response, { className: 'dataset-columns' });
                     //add event listeners
+                    S.editor.datasets.columns.initForm();
                     $('.dataset-columns .save-columns').on('click', (e) => {
                         //create dataset
                         e.preventDefault();
@@ -160,6 +195,7 @@ S.editor.datasets = {
     },
 
     records: {
+        excluded: ['id', 'lang', 'datecreated', 'datemodified'],
         show: function (id, partial, name, lang, search, start, length) {
             $('.editor .sections > .tab').addClass('hide');
             if (!lang) { lang = $('.tab-toolbar .lang').val(); }
@@ -342,7 +378,7 @@ S.editor.datasets = {
                             S.editor.error('.popup .msg', err.responseText);
                             popup.find('button.apply').show();
                     });
-                });
+                }, S.editor.datasets.records.excluded);
             }
         },
 
@@ -360,7 +396,7 @@ S.editor.datasets = {
                         S.editor.error('.popup .msg', err.responseText);
                         popup.find('button.apply').show();
                     });
-                });
+                }, S.editor.datasets.records.excluded);
             }, (err) => {
                 S.editor.error('', err.responseText);
             });

@@ -6,6 +6,7 @@
 			<column name="label" datatype="text" maxlength="64"></column>
 			<column name="description" datatype="text" maxlength="max"></column>
 			<column name="datecreated" datatype="datetime" default="now"></column>
+			<column name="list-team" datatype="list" default=""></column>
 		</columns>
 	*/
 AS
@@ -16,35 +17,42 @@ AS
 	--update existing table for this dataset
 	DECLARE @sql nvarchar(MAX) = 'ALTER TABLE [dbo].[DataSet_' + @tablename + '] ADD '
 	DECLARE @indexes nvarchar(MAX) = ''
+	DECLARE @relationships nvarchar(MAX) = ''
 		
 	DECLARE @hdoc INT
 	DECLARE @cols TABLE (
 		[name] nvarchar(32),
 		datatype varchar(32),
 		[maxlength] varchar(32),
-		[default] varchar(32)
+		[default] varchar(32),
+		[dataset] varchar(32),
+		[listname] varchar(32)
 	)
 	EXEC sp_xml_preparedocument @hdoc OUTPUT, @columns;
 
 	/* create new addressbook entries based on email list */
 	INSERT INTO @cols
-	SELECT x.[name], x.datatype, x.[maxlength], x.[default]
+	SELECT x.[name], x.datatype, x.[maxlength], x.[default], x.[dataset], x.[listname]
 	FROM (
 		SELECT * FROM OPENXML( @hdoc, '//column', 2)
 		WITH (
 			[name] nvarchar(32) '@name',
 			datatype nvarchar(32) '@datatype',
 			[maxlength] nvarchar(32) '@maxlength',
-			[default] nvarchar(32) '@default'
+			[default] nvarchar(32) '@default',
+			[dataset] nvarchar(32) '@dataset',
+			[listname] nvarchar(32) '@listname'
 		)
 	) AS x
 	
 	DECLARE @cursor CURSOR 
-	DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), @default nvarchar(32)
+	DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), 
+		@default nvarchar(32), @dataset nvarchar(32), @listname nvarchar(32),
+		@newname nvarchar(32)
 	SET @cursor = CURSOR FOR
-	SELECT [name], [datatype],[maxlength], [default] FROM @cols
+	SELECT [name], [datatype],[maxlength], [default], [dataset], [listname] FROM @cols
 	OPEN @cursor
-	FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default
+	FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
 	WHILE @@FETCH_STATUS = 0 BEGIN
 		SET @maxlength = ISNULL(@maxlength, '64')
 		IF @maxlength = '0' SET @maxlength = 'MAX'
@@ -72,7 +80,16 @@ AS
 			SET @sql = @sql + '[' + @name + '] DATETIME2(7) ' + CASE WHEN @default = 'now' THEN 'NOT NULL DEFAULT GETUTCDATE()' ELSE 'NULL' END
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
-		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default
+		IF @datatype = 'relationship' BEGIN
+			SET @sql = @sql + '[' + @name + '] INT NOT NULL DEFAULT 0'
+			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
+			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=' + @dataset + ', @childId=' + CONVERT(nvarchar(MAX), @datasetId) + ', @parentList=''' + @listName + ''', @childColumn=''' + @name + '''' + CHAR(13) 
+		END
+		IF @datatype = 'list' BEGIN
+			SET @newname = REPLACE(@name, '-', '_')
+			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NULL'
+		END
+		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
 		IF @@FETCH_STATUS = 0 SET @sql = @sql + ', '
 	END
 	CLOSE @cursor
@@ -84,3 +101,6 @@ AS
 	--execute generated SQL code
 	EXECUTE sp_executesql @sql
 	EXECUTE sp_executesql @indexes
+	IF @relationships != '' BEGIN
+		EXECUTE sp_executesql @relationships
+	END
