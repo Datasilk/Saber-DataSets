@@ -4,10 +4,28 @@
 	@start int = 1,
 	@length int = 50,
 	@lang nvarchar(MAX) = '',
-	@search nvarchar(MAX) = '',
-	@searchtype int = 0, -- 0 = LIKE %x%, 1 = LIKE x% (starts with), 2 = LIKE %x (ends with), -1 = exact match
-	@recordId int = 0,
-	@orderby nvarchar(MAX) = ''
+	@filters XML = '',
+	/* example:	
+		<filters>
+			<group type="and">
+				<groups>
+					<group type="or">
+						<element column="username" match="2" value="polymath"></element>
+					</group>
+				</groups>
+				<elements>
+					<element column="username" match="2" value="polymath"></element>
+				</elements>
+			</group>
+		</filters>
+	*/
+	@sort XML = ''
+	/* example:	
+		<orderby>
+			<sort column="userid" by="0"></sort>
+			<sort column="datecreated" by="1"></sort>
+		</orderby>
+	*/
 AS
 	SET NOCOUNT ON
 	DECLARE @tableName nvarchar(64)

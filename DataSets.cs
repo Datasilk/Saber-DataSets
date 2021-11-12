@@ -9,7 +9,7 @@ namespace Saber.Vendors.DataSets
 {
     public class DataSets : Core.Service, IVendorService
     {
-        private string[] ExcludedFields = new string[]{"id", "lang", "datecreated", "datemodified"};
+        public static string[] ExcludedFields = new string[]{"id", "lang", "datecreated", "datemodified"};
 
         #region "Data Sets"
         public string GetList(bool owned = true, bool all = true, string search = "")
@@ -39,7 +39,7 @@ namespace Saber.Vendors.DataSets
         public string GetCreateForm()
         {
             if (IsPublicApiRequest || !CheckSecurity("create-datasets")) { return AccessDenied(); }
-            return Cache.LoadFile("/Vendors/DataSets/create.html");
+            return Saber.Cache.LoadFile("/Vendors/DataSets/create.html");
         }
 
         public string LoadColumns(string partial)
@@ -180,6 +180,7 @@ namespace Saber.Vendors.DataSets
             try
             {
                 var id = Query.DataSets.Create(name, partial, description, columns, isprivate == true ? User.UserId : null);
+                Cache.DataSources = null;
                 return id > 0 ? id.ToString() : Error("An error occurred when trying to create a new data set");
             }
             catch(Exception ex)
@@ -196,6 +197,7 @@ namespace Saber.Vendors.DataSets
             try
             {
                 Query.DataSets.UpdateColumns(datasetId, columns);
+                Cache.DataSources = null;
                 return Success();
             }
             catch (Exception ex)
@@ -204,12 +206,11 @@ namespace Saber.Vendors.DataSets
             }
         }
 
-        public string Details(int datasetId, string lang, string search, int start = 1, int length = 50, int searchType = 0)
+        public string Details(int datasetId, string lang, int start = 1, int length = 50, List<DataSource.FilterGroup> filters = null, List<DataSource.OrderBy> sort = null)
         {
             if (IsPublicApiRequest || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
-            var orderby = "";
-            var data = Query.DataSets.GetRecords(datasetId, start, length, lang, search, (Query.DataSets.SearchType)searchType, orderby);
+            var data = Query.DataSets.GetRecords(datasetId, start, length, lang, User.UserId, filters, sort);
             var view = new View("/Vendors/DataSets/dataset.html");
             var viewMenu = new View("/Vendors/DataSets/record-menu.html");
             var header = new StringBuilder();
@@ -323,6 +324,7 @@ namespace Saber.Vendors.DataSets
             if (IsPublicApiRequest || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
             Query.DataSets.UpdateInfo(datasetId, isprivate == true ? User.UserId : null, name, description);
+            Cache.DataSources = null;
             return Success();
         }
 
@@ -333,6 +335,7 @@ namespace Saber.Vendors.DataSets
             try
             {
                 Query.DataSets.Delete(datasetId);
+                Cache.DataSources = null;
                 return Success();
             }
             catch (Exception)
@@ -391,12 +394,12 @@ namespace Saber.Vendors.DataSets
         {
             if (IsPublicApiRequest || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not own this dataset"); }
-            var record = Query.DataSets.GetRecords(datasetId, 1, 1, lang, "", Query.DataSets.SearchType.any, "", 0, recordId).FirstOrDefault();
+            var record = Query.DataSets.GetRecords(datasetId, 1, 1, lang, User.UserId).FirstOrDefault();
             var fields = new Dictionary<string, string>();
             if(record == null && lang != "en")
             {
                 //try to get record in English if one doesn't exist in the selected language
-                record = Query.DataSets.GetRecords(datasetId, 1, 1, "en", "", Query.DataSets.SearchType.any, "", 0, recordId).FirstOrDefault();
+                record = Query.DataSets.GetRecords(datasetId, 1, 1, "en", User.UserId).FirstOrDefault();
             }
             if(record != null)
             {
@@ -417,8 +420,140 @@ namespace Saber.Vendors.DataSets
             {
                 return Error("No fields were included when trying to update an existing record");
             }
-            Query.DataSets.UpdateRecord(datasetId, recordId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList());
+            Query.DataSets.UpdateRecord(User.UserId, datasetId, recordId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList());
             return Success();
+        }
+        #endregion
+
+        #region "Content Fields"
+        public string RenderContentFields(string path, string language, string container, bool showlang = false, Dictionary<string, string> data = null, List<string> exclude = null)
+        {
+            if (IsPublicApiRequest || !CheckSecurity("edit-content")) { return AccessDenied(); }
+            var paths = PageInfo.GetRelativePath(path);
+            var fields = data != null && data.Keys.Count > 0 ? data : ContentFields.GetPageContent(path, language);
+            var view = new View(string.Join("/", paths) + (path.Contains(".html") ? "" : ".html"));
+            var parentId = Parameters.ContainsKey("parentId") ? int.Parse(Parameters["parentId"]) : 0;
+            var datasetId = Parameters.ContainsKey("datasetId") ? int.Parse(Parameters["datasetId"]) : 0;
+            var recordId = Parameters.ContainsKey("recordId") ? int.Parse(Parameters["recordId"]) : 0;
+            var relationships = Query.DataSets.Relationships.GetList(datasetId);
+            var parents = Query.DataSets.Relationships.GetList(parentId);
+            var columns = Query.DataSets.GetColumns(datasetId);
+            var lists = view.Elements.Where(a => a.Name == "list" || a.Name.IndexOf("list-") == 0);
+            var fieldTypes = new Dictionary<string, ContentFields.FieldType>();
+            var hideElements = new List<string>();
+            foreach(var elem in view.Elements)
+            {
+                var name = elem.Name.Replace("-", "_");
+                var i = relationships.FindIndex(a => a.childColumn == name);
+                if (i >= 0)
+                {
+                    hideElements.Add(elem.Name);
+                }
+                i = parents.FindIndex(a => a.childColumn == name);
+                if (i >= 0)
+                {
+                    parents[i].childKey = elem.Name;
+                    hideElements.Add(elem.Name);
+                }
+            }
+            foreach(var list in lists)
+            {
+                var columnName = list.Name.Replace("-", "_");
+                var field = "";
+                var parts = new List<string>();
+                if (fields.ContainsKey(columnName))
+                {
+                    field = fields[columnName];
+                    parts = field.Split("|!|").ToList();
+                }
+                var relationship = relationships.Where(a => a.parentList == list.Name).FirstOrDefault();
+                if(relationship != null && field.IndexOf("data-src=") < 0)
+                {
+                    parts.Add("data-src=dataset-" + relationship.childId);
+                }
+                if (!parts.Contains("locked"))
+                {
+                    parts.Add("locked");
+                }
+                if (!parts.Contains("add") && data != null && data.Keys.Count > 0)
+                {
+                    parts.Add("add");
+                }else if(data == null || data.Keys.Count == 0)
+                {
+                    hideElements.Add(list.Name);
+                }
+                fields[list.Name] = string.Join("|!|", parts.Where(a => !string.IsNullOrEmpty(a)));
+
+                //add arguments to mustache code
+                list.Vars.Add("renderapi", "DataSets/RenderContentFields?parentId=" + datasetId + "&datasetId=" + relationship.childId + "&recordId=" + recordId);
+            }
+
+            //hide all unusable lists
+            foreach(var elem in hideElements)
+            {
+                var i = view.Elements.FindIndex(a => a.Name == elem);
+                view.Elements[i] = new ViewElement()
+                {
+                    Name = "",
+                    Htm = "",
+                    Var = "",
+                    Vars = new Dictionary<string, string>()
+                };
+            }
+
+            //find datatypes for fields
+            foreach (var elem in view.Elements.Where(a => !string.IsNullOrEmpty(a.Name) && a.isBlock == false).Select(a => a.Name).Distinct())
+            {
+                var name = elem.Replace("-", "_");
+                var datatype = columns.Where(a => a.Name == name).FirstOrDefault();
+                if (datatype != null)
+                {
+                    switch (datatype.DataType.ToLower())
+                    {
+                        case "int":
+                        case "bigint":
+                        case "smallint":
+                        case "tinyint":
+                        case "float":
+                        case "decimal":
+                            fieldTypes.Add(elem, ContentFields.FieldType.number);
+                            break;
+                        case "bit":
+                            fieldTypes.Add(elem, ContentFields.FieldType.block);
+                            break;
+                        case "datatime2":
+                            fieldTypes.Add(elem, ContentFields.FieldType.datetime);
+                            break;
+                    }
+                }
+            }
+
+            var result = Common.Platform.ContentFields.RenderForm(this, "", view, language, container, fields, exclude?.ToArray(), fieldTypes);
+
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                var nofields = new View("/Views/ContentFields/nofields.html");
+                nofields["filename"] = paths[paths.Length - 1];
+                return Response(nofields.Render());
+            }
+            if (showlang == true)
+            {
+                var viewlang = new View("/Views/ContentFields/showlang.html");
+                viewlang["language"] = App.Languages.Where(a => a.Key == language).First().Value;
+                result = viewlang.Render() + result;
+            }
+
+            //add hidden fields to result for all child columns found in relationships
+            var html = new StringBuilder();
+            if(parentId > 0)
+            {
+                foreach (var item in parents)
+                {
+                    html.Append("<input type=\"hidden\" id=\"" + Common.Platform.ContentFields.GetFieldId(item.childKey) + "\" class=\"input-field\" value=\"" + recordId + "\"/>\n");
+                }
+            }
+
+            return Response(result + html.ToString());
         }
         #endregion
 

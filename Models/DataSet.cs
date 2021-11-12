@@ -41,6 +41,12 @@ namespace Query.Models.DataSets
         public string ListName { get; set; }
     }
 
+    public class ColumnName
+    {
+        public string Name { get; set; }
+        public int DataSetId { get; set; }
+    }
+
     public enum DataType
     {
         text = 0,

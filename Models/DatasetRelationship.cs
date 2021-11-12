@@ -10,5 +10,6 @@
         public string childTableName { get; set; }
         public string parentList { get; set; }
         public string childColumn { get; set; }
+        public string childKey { get; set; }
     }
 }

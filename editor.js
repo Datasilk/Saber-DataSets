@@ -367,6 +367,7 @@ S.editor.datasets = {
             show: function (id, partial, name) {
                 //show content fields form to create new row within data set
                 var lang = $('.tab-toolbar .lang').val();
+
                 var popup = S.editor.fields.popup(partial, lang, 'Create a new Record for "' + name + '"', null, 'Create Record', (e, fields) => {
                     //pass content field data to dataset service
                     popup.find('button.apply').hide();
@@ -378,7 +379,7 @@ S.editor.datasets = {
                             S.editor.error('.popup .msg', err.responseText);
                             popup.find('button.apply').show();
                     });
-                }, S.editor.datasets.records.excluded);
+                }, S.editor.datasets.records.excluded, 'DataSets/RenderContentFields?datasetId=' + id);
             }
         },
 
@@ -396,7 +397,7 @@ S.editor.datasets = {
                         S.editor.error('.popup .msg', err.responseText);
                         popup.find('button.apply').show();
                     });
-                }, S.editor.datasets.records.excluded);
+                }, S.editor.datasets.records.excluded, 'DataSets/RenderContentFields?datasetId=' + datasetId + '&recordId=' + recordId);
             }, (err) => {
                 S.editor.error('', err.responseText);
             });

@@ -36,9 +36,12 @@ namespace Query
             exactMatch = -1
         }
 
-        public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string lang = "", string search = "", SearchType searchType = SearchType.any, string orderby = "", int userId = 0, int recordId = 0)
+        public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string lang = "", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null, List<Saber.Vendor.DataSource.OrderBy> sort = null)
         {
-            var list = Sql.Populate<dynamic>("DataSet_GetRecords", new { datasetId, userId, start, length, lang, search, searchtype = (int)searchType, recordId, orderby });
+            var list = Sql.Populate<dynamic>("DataSet_GetRecords", new { datasetId, userId, start, length, lang,  
+                filters = "<filters>" + Common.Serializer.ToXmlDocument(filters).OuterXml + "</filters>",
+                sort = "<orderby>" + Common.Serializer.ToXmlDocument(sort).OuterXml + "</orderby>"
+            });
             var results = new List<IDictionary<string, object>>();
             foreach(var item in list)
             {
@@ -57,13 +60,13 @@ namespace Query
             Sql.ExecuteNonQuery("DataSet_AddRecord", new { userId, datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
         }
 
-        public static void UpdateRecord(int datasetId, int recordId, string lang, List<Models.DataSets.Field> fields)
+        public static void UpdateRecord(int userId, int datasetId, int recordId, string lang, List<Models.DataSets.Field> fields)
         {
             var list = new Models.DataSets.Fields()
             {
                 Items = fields.ToArray()
             };
-            Sql.ExecuteNonQuery("DataSet_UpdateRecord", new { datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
+            Sql.ExecuteNonQuery("DataSet_UpdateRecord", new { userId, datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
         }
 
         public static Models.DataSet GetInfo(int datasetId)
@@ -79,6 +82,11 @@ namespace Query
         public static List<Models.DataSets.Column> GetColumns(int datasetId)
         {
             return Sql.Populate<Models.DataSets.Column>("DataSet_GetColumns", new { datasetId });
+        }
+
+        public static List<Models.DataSets.ColumnName> GetAllColumns()
+        {
+            return Sql.Populate<Models.DataSets.ColumnName>("DataSet_GetAllColumns");
         }
 
         public static void UpdateInfo(int datasetId, int? userId, string label, string description)

@@ -14,6 +14,7 @@ namespace Saber.Vendors.DataSets
         public string Prefix { get; set; } = "dataset";
         public string Description { get; set; } = "Create database tables, columns of various data types, and rows of data from within Saber's Editor, then use your tables as data sources.";
 
+
         public List<KeyValuePair<string, string>> List()
         {
             //get list of available Data Sets as data sources
@@ -21,37 +22,34 @@ namespace Saber.Vendors.DataSets
             return datasets.Select(a => new KeyValuePair<string, string>(a.datasetId.ToString(), a.label)).ToList();
         }
 
-        public DataSource Get(string name)
+        public DataSource Get(string key)
         {
             //get information about a data set as a data source
-            throw new NotImplementedException();
+            return Cache.DataSources.Where(a => a.Key == key).FirstOrDefault();
         }
 
-        public List<Dictionary<string, string>> Filter(string key, int start, int length, string lang = "en", Dictionary<string, object> filter = null)
+        public void Create(IRequest request, string key, Dictionary<string, string> columns)
+        {
+            var datasetId = int.Parse(key);
+            var lang = columns.ContainsKey("lang") ? columns["lang"] : request.User.Language;
+            Query.DataSets.AddRecord(request.User.UserId, datasetId, lang, columns.Where(a => !DataSets.ExcludedFields.Contains(a.Key))
+                .Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList());
+        }
+
+        public void Update(IRequest request, string key, string id, Dictionary<string, string> columns)
+        {
+            var datasetId = int.Parse(key);
+            var lang = columns.ContainsKey("lang") ? columns["lang"] : request.User.Language;
+            Query.DataSets.UpdateRecord(request.User.UserId, datasetId, int.Parse(id), lang, columns.Where(a => !DataSets.ExcludedFields.Contains(a.Key))
+                .Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList());
+        }
+
+        public List<Dictionary<string, string>> Filter(IRequest request, string key, int start, int length, string lang = "en", List<DataSource.FilterGroup> filters = null, List<DataSource.OrderBy> orderBy = null)
         {
             //get filtered records from a data set
-            var search = filter != null && filter.ContainsKey("search") ? filter["search"].ToString() : "";
-            var match = filter != null && filter.ContainsKey("match") ? int.Parse(filter["match"].ToString()) : 0;
-            var orderby = filter != null && filter.ContainsKey("orderby") ? filter["orderby"].ToString() : "";
-            var recordId = filter != null && filter.ContainsKey("recordId") ? int.Parse(filter["recordId"].ToString()) : 0;
-            return Query.DataSets.GetRecords(int.Parse(key), start, length, lang, search, (Query.DataSets.SearchType)match, orderby, recordId)?
+            var datasetId = int.Parse(key);
+            return Query.DataSets.GetRecords(datasetId, start, length, lang, request.User.UserId, filters, orderBy)?
                 .Select(a => a.ToDictionary(k => k.Key, v => v.Value == null ? "" : v.Value.ToString())).ToList();
-        }
-
-        public DataSourceFilterForm RenderFilters(string name, IRequest request, Dictionary<string, object> filter = null)
-        {
-            //render an HTML partial to display a set of filters that can be applied to our data set query results
-            var view = new View("/Vendors/DataSets/datasource-filter.html");
-            //request.AddScript("/editor/vendors/datasets/datasource-filter.js", "datasets-datasource-filterjs", "S.datasets.datasources.initFilters()");
-            if(filter != null && filter.Count > 0)
-            {
-                //populate filter values (if applicable)
-            }
-            return new DataSourceFilterForm()
-            {
-                HTML = view.Render(),
-                OnInit = "S.editor.datasets.contentfields.filter.init"
-            };
         }
     }
 }
