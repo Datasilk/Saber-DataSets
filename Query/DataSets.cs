@@ -38,9 +38,12 @@ namespace Query
 
         public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string lang = "", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null, List<Saber.Vendor.DataSource.OrderBy> sort = null)
         {
+            var xmlFilters = new Saber.Vendor.DataSource.FilterGroups(filters);
+            var xmlOrderBy = new Saber.Vendor.DataSource.OrderByList(sort);
+
             var list = Sql.Populate<dynamic>("DataSet_GetRecords", new { datasetId, userId, start, length, lang,  
-                filters = "<filters>" + Common.Serializer.ToXmlDocument(filters).OuterXml + "</filters>",
-                sort = "<orderby>" + Common.Serializer.ToXmlDocument(sort).OuterXml + "</orderby>"
+                filters = Common.Serializer.ToXmlDocument(xmlFilters).OuterXml,
+                sort = Common.Serializer.ToXmlDocument(xmlOrderBy).OuterXml
             });
             var results = new List<IDictionary<string, object>>();
             foreach(var item in list)

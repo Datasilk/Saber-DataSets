@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE [dbo].[DataSet_GetRecords]
+﻿ALTER PROCEDURE [dbo].[DataSet_GetRecords]
 	@datasetId int,
 	@userId int = 0,
 	@start int = 1,
@@ -6,7 +6,7 @@
 	@lang nvarchar(MAX) = '',
 	@filters XML = '',
 	/* example:	
-		<filters>
+		<groups>
 			<group type="and">
 				<groups>
 					<group type="or">
@@ -17,7 +17,7 @@
 					<element column="username" match="2" value="polymath"></element>
 				</elements>
 			</group>
-		</filters>
+		</groups>
 	*/
 	@sort XML = ''
 	/* example:	
@@ -38,7 +38,7 @@ AS
 		'WHERE' +
 		(CASE WHEN @userId > 0 THEN ' d.userId=' + CONVERT(nvarchar(16), @userId) + ' AND' ELSE '' END) + ' d.lang=''' + @lang + ''''
 	
-	IF @search IS NOT NULL AND @search != '' BEGIN
+	IF @filters IS NOT NULL BEGIN
 		--get table columns
 		SELECT c.[name] AS col
 		INTO #cols 
@@ -48,6 +48,7 @@ AS
 		AND t.[Name] LIKE '%varchar%'
 		AND c.[name] NOT IN ('lang', 'userId')
 
+		/*
 		SET @sql += ' AND ('
 
 		DECLARE @cursor1 CURSOR, @column nvarchar(32)
@@ -70,15 +71,7 @@ AS
 		CLOSE @cursor1
 		DEALLOCATE @cursor1
 		SET @sql += ')'
-	END
-
-	IF @recordId > 0 BEGIN
-		SET @sql += ' AND d.Id=' + CONVERT(nvarchar(16), @recordId)
-	END
-
-	-- include orderby clause
-	IF @recordId <= 0 AND @orderby IS NOT NULL AND @orderby != '' BEGIN
-		SET @sql = @sql + ' ORDERBY ' + @orderby
+		*/
 	END
 
 	--PRINT @sql

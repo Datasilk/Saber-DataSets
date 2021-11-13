@@ -478,7 +478,10 @@ namespace Saber.Vendors.DataSets
                 if (!parts.Contains("add") && data != null && data.Keys.Count > 0)
                 {
                     parts.Add("add");
-                }else if(data == null || data.Keys.Count == 0)
+                    parts.Add("filter=[]");//include filter groups array
+                    parts.Add("sort=[]");//include sort array
+                }
+                else if(data == null || data.Keys.Count == 0)
                 {
                     hideElements.Add(list.Name);
                 }
