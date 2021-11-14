@@ -7,6 +7,7 @@ namespace Saber.Vendors.DataSets
     public static class Cache
     {
         private static List<DataSource> _dataSources { get; set; }
+        private static List<Query.Models.DataSet> _dataSets { get; set; }
 
         public static List<DataSource> DataSources
         {
@@ -35,6 +36,23 @@ namespace Saber.Vendors.DataSets
             set
             {
                 _dataSources = value;
+            }
+        }
+
+        public static List<Query.Models.DataSet> DataSets
+        {
+            get
+            {
+                if (_dataSets == null)
+                {
+                    _dataSets = Query.DataSets.GetList();
+                }
+                return _dataSets;
+            }
+
+            set
+            {
+                _dataSets = value;
             }
         }
     }

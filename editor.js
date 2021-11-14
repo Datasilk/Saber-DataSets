@@ -405,20 +405,6 @@ S.editor.datasets = {
         }
     },
 
-    contentfields: {
-        filter: {
-            init: function (container, inputfield) {
-                //add event listeners to all filter inputs and save filter settings to
-                //input field so when Saber saves Page Content tab, it saves updated filter settings
-                var inputs = container.find('input, select, textarea');
-                inputs.on('keyup, change', (e) => {
-                    var filter = { search: container.find('.filter-search').val().replace(/\|/g, '') };
-                    S.editor.fields.custom.list.datasource.filter.save(inputfield, filter);
-                });
-            }
-        }
-    },
-
     viewOwner: function (e, userId, email) {
         e.preventDefault();
         e.cancelBubble = true;
