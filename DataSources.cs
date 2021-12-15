@@ -71,5 +71,14 @@ namespace Saber.Vendors.DataSets
                     }).ToList());
                 });
         }
+        int IVendorDataSources.FilterTotal(IRequest request, string key, string lang, List<DataSource.FilterGroup> filter, List<DataSource.OrderBy> orderBy)
+        {
+            throw new NotImplementedException();
+        }
+
+        Dictionary<string, int> IVendorDataSources.FilterTotal(IRequest request, string key, string lang, Dictionary<string, List<DataSource.FilterGroup>> filter, Dictionary<string, List<DataSource.OrderBy>> orderBy, string[] childKeys)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
