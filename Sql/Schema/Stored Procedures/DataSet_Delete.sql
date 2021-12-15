@@ -8,4 +8,5 @@ AS
 	SET @sql = 'DROP SEQUENCE Sequence_DataSet_' + @tableName
 	EXEC sp_executesql @sql
 	DELETE FROM DataSets WHERE datasetId=@datasetId
+	DELETE FROM DataSets_Relationships WHERE parentId=@datasetId OR childId=@datasetId
 

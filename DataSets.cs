@@ -227,7 +227,7 @@ namespace Saber.Vendors.DataSets
                 foreach(var rel in relationships)
                 {
                     viewRelationship.Clear();
-                    viewRelationship["id"] = rel.childId;
+                    viewRelationship["id"] = rel.childId.ToString();
                     viewRelationship["name"] = rel.childLabel;
                     html.Append(viewRelationship.Render());
                 }
@@ -267,11 +267,11 @@ namespace Saber.Vendors.DataSets
                 foreach (var item in data)
                 {
                     //load column values for each dataset record
-                    var recordId = ConvertFieldToString(item["Id"]);
-                    viewMenu["recordId"] = recordId;
+                    viewMenu.Clear();
+                    var recordId = (int)item["Id"];
+                    viewMenu["recordId"] = recordId.ToString();
                     rows.Append("<tr data-id=\"" + recordId + "\">");
                     i = 0;
-                    viewMenu.Clear();
                     var username = item.ContainsKey("username") && item["username"] != null ? item["username"].ToString() : "";
                     var useremail = item.ContainsKey("useremail") && item["useremail"] != null ? item["useremail"].ToString() : "";
                     foreach (var col in item)
@@ -386,7 +386,7 @@ namespace Saber.Vendors.DataSets
             {
                 return Error("No fields were included when trying to create a new record");
             }
-            Query.DataSets.AddRecord(User.UserId, datasetId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList(), recordId);
+            Query.DataSets.AddRecord(User.UserId, datasetId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key.Replace("-", "_"), Value = a.Value }).ToList(), recordId);
             return Success();
         }
 
@@ -394,7 +394,22 @@ namespace Saber.Vendors.DataSets
         {
             if (IsPublicApiRequest || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not own this dataset"); }
-            var record = Query.DataSets.GetRecords(datasetId, 1, 1, lang, User.UserId).FirstOrDefault();
+            var record = Query.DataSets.GetRecords(datasetId, 1, 1, lang, User.UserId, new List<DataSource.FilterGroup>()
+            {
+                new DataSource.FilterGroup()
+                {
+                    Match = DataSource.GroupMatchType.All,
+                    Elements = new List<DataSource.FilterElement>()
+                    {
+                        new DataSource.FilterElement()
+                        {
+                            Column = "id",
+                            Value = recordId.ToString(),
+                            Match = DataSource.FilterMatchType.Equals
+                        }
+                    }
+                }
+            }).FirstOrDefault();
             var fields = new Dictionary<string, string>();
             if(record == null && lang != "en")
             {
@@ -420,7 +435,22 @@ namespace Saber.Vendors.DataSets
             {
                 return Error("No fields were included when trying to update an existing record");
             }
-            Query.DataSets.UpdateRecord(User.UserId, datasetId, recordId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList());
+            Query.DataSets.UpdateRecord(User.UserId, datasetId, recordId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key.Replace("-", "_"), Value = a.Value }).ToList());
+            return Success();
+        }
+
+        public string DeleteRecord(int datasetId, int recordId)
+        {
+            if (IsPublicApiRequest || !CheckSecurity("add-dataset-data")) { return AccessDenied(); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not own this dataset"); }
+            try
+            {
+                Query.DataSets.DeleteRecord(datasetId, recordId);
+            }
+            catch (Exception ex)
+            {
+                return Error("Could not delete record " + recordId + " from data set " + datasetId);
+            }
             return Success();
         }
         #endregion

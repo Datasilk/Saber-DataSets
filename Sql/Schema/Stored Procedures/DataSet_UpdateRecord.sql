@@ -67,7 +67,7 @@ SET NOCOUNT ON
 					SET @sql += '[' + @name + '] = ' + @value
 				END 
 			END
-
+			PRINT @name + ', ' + @datatype + ', ' + @value
 			FETCH NEXT FROM @cursor INTO @name, @value
 			IF @@FETCH_STATUS = 0 AND @datatype != '' BEGIN
 				SET @sql += ', '

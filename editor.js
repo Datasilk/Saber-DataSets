@@ -104,24 +104,19 @@ S.editor.datasets = {
                 var data = { datasetId: target.val() };
                 S.ajax.post('DataSets/ListComponents', data, (response) => {
                     var list = JSON.parse(response);
-                    console.log(list);
                     var options = '';
                     for (var x = 0; x < list.length; x++) {
                         var item = list[x];
                         options += '<option value="' + item + '">' + item + '</option>';
                     }
-                    console.log(parent);
                     parent.find('.column-listname').html(options);
                 });
             });
         },
 
         checkPartial: function (datasetId, partial, name) {
-            console.log('check partial');
             S.ajax.post('DataSets/LoadNewColumns', { datasetId: datasetId }, (response) => {
-                console.log(response);
                 if (response == 'success') {
-                    console.log('show message');
                     S.editor.message('', 'Successfully checked partial view for new data set columns and found no new columns.');
                 } else {
                     //display popup with list of dataset columns
@@ -196,13 +191,15 @@ S.editor.datasets = {
 
     records: {
         excluded: ['id', 'lang', 'datecreated', 'datemodified'],
-        show: function (id, partial, name, lang, search, start, length) {
+        show: function (id, partial, name, lang, start, length) {
             $('.editor .sections > .tab').addClass('hide');
             if (!lang) { lang = $('.tab-toolbar .lang').val(); }
             if (!lang) { lang = 'en'; }
-            if (!search) { search = $('.tab-toolbar .search-dataset').val(); }
+            var search = $('.tab-toolbar .search-dataset').val(); 
             if (!start) { start = 1; }
             if (!length) { length = 50; }
+            var filters = [];
+            var sort = [];
 
             function focusTab() {
                 //select tab & generate toolbar
@@ -213,14 +210,14 @@ S.editor.datasets = {
                 txtsearch.on('keyup', (e) => {
                     if (event.key === "Enter") {
                         search = txtsearch.val();
-                        S.editor.datasets.records.show(id, partial, name, lang, search);
+                        S.editor.datasets.records.show(id, partial, name, lang);
                     }
                 });
 
                 S.editor.lang.load('.tab-toolbar .lang', lang, (e) => {
                     //reload records with selected language
                     lang = $('.tab-toolbar .lang').val();
-                    S.editor.datasets.records.show(id, partial, name, lang, search);
+                    S.editor.datasets.records.show(id, partial, name, lang);
                 });
                 $('.file-bar .new-record').on('click', (e) => {
                     //show popup modal with a content field list form
@@ -313,7 +310,7 @@ S.editor.datasets = {
             }
 
             //reload tab contents no matter what
-            S.ajax.post('DataSets/Details', { datasetId: id, lang: lang, search: search, start: start, length: length },
+            S.ajax.post('DataSets/Details', { datasetId: id, lang: lang, start: start, length: length, filters: filters, sort: sort },
                 function (d) {
                     $('.tab.dataset-' + id + '-section .scroller').html(d);
                     if ($('.tab-toolbar .lang').children().length == 0) {
@@ -341,6 +338,11 @@ S.editor.datasets = {
                             var recordlang = target.attr('data-lang');
                             S.editor.datasets.records.edit(id, partial, recordId, name, recordlang);
                         });
+                        $('.drop-menu .delete-record').on('click', (e) => {
+                            if (confirm("Do you really want to delete this record? All related records in all relationship tables will also be deleted. This cannot be undone!") == true) {
+                                S.editor.datasets.records.delete(id, recordId, partial, name);
+                            }
+                        });
                         $(document.body).on('click', hideMenus);
                     });
 
@@ -367,14 +369,13 @@ S.editor.datasets = {
             show: function (id, partial, name) {
                 //show content fields form to create new row within data set
                 var lang = $('.tab-toolbar .lang').val();
-
                 var popup = S.editor.fields.popup(partial, lang, 'Create a new Record for "' + name + '"', null, 'Create Record', (e, fields) => {
                     //pass content field data to dataset service
                     popup.find('button.apply').hide();
                     S.ajax.post('Datasets/CreateRecord', { datasetId: id, lang: lang, fields: fields }, (response) => {
                         S.popup.hide();
                         //reload records tab
-                        S.editor.datasets.records.show(id, partial, name);
+                        S.editor.datasets.records.show(id, partial, name, lang);
                     }, (err) => {
                             S.editor.error('.popup .msg', err.responseText);
                             popup.find('button.apply').show();
@@ -389,10 +390,13 @@ S.editor.datasets = {
                 var popup = S.editor.fields.popup(partial, lang, 'Update Record for "' + name + '"', fieldslist, 'Update Record', (e, fields) => {
                     //pass content field data to dataset service
                     popup.find('button.apply').hide();
+                    //update content field values before saving
+                    S.editor.fields.presave();
+                    //update record in database
                     S.ajax.post('Datasets/UpdateRecord', { datasetId: datasetId, recordId: recordId, lang: lang, fields: fields }, (response) => {
                         S.popup.hide();
                         //reload records tab
-                        S.editor.datasets.records.show(datasetId, partial, name);
+                        S.editor.datasets.records.show(datasetId, partial, name, lang);
                     }, (err) => {
                         S.editor.error('.popup .msg', err.responseText);
                         popup.find('button.apply').show();
@@ -401,7 +405,15 @@ S.editor.datasets = {
             }, (err) => {
                 S.editor.error('', err.responseText);
             });
-            
+        },
+
+        delete: function (datasetId, recordId, partial, name) {
+            //first, get fields for dataset record based on selected language
+            S.ajax.post('Datasets/DeleteRecord', { datasetId: datasetId, recordId: recordId }, (fieldslist) => {
+                S.editor.datasets.records.show(datasetId, partial, name);
+            }, (err) => {
+                S.editor.error('', err.responseText);
+            });
         }
     },
 
