@@ -14,6 +14,8 @@ namespace Saber.Vendors.DataSets
         public string Prefix { get; set; } = "dataset";
         public string Description { get; set; } = "Create database tables, columns of various data types, and rows of data from within Saber's Editor, then use your tables as data sources.";
 
+        public void Init()
+        {}
 
         public List<KeyValuePair<string, string>> List()
         {
@@ -50,6 +52,34 @@ namespace Saber.Vendors.DataSets
             var datasetId = int.Parse(key);
             return Query.DataSets.GetRecords(datasetId, start, length, lang, request.User.UserId, filters, orderBy)?
                 .Select(a => a.ToDictionary(k => k.Key, v => v.Value == null ? "" : v.Value.ToString())).ToList();
+        }
+
+        public Dictionary<string, List<Dictionary<string, string>>> Filter(IRequest request, string key, string lang = "en", Dictionary<string, DataSource.PositionSettings> positions = null,  Dictionary<string, List<DataSource.FilterGroup>> filters = null, Dictionary<string, List<DataSource.OrderBy>> orderBy = null, string[] childKeys = null)
+        {
+            var datasetId = int.Parse(key);
+            return Query.DataSets.GetRecordsInRelationships(datasetId, lang, request.User.UserId, positions, filters, orderBy, childKeys)?
+                .ToDictionary(a => a.Key, a =>
+                {
+                    return new List<Dictionary<string, string>>(a.Value.Select(b =>
+                    {
+                        var c = new Dictionary<string, string>();
+                        foreach(var k in b)
+                        {
+                            c.Add(k.Key, k.Value.ToString());
+                        }
+                        return c;
+                    }).ToList());
+                });
+        }
+
+        int IVendorDataSources.FilterTotal(IRequest request, string key, string lang, List<DataSource.FilterGroup> filter, List<DataSource.OrderBy> orderBy)
+        {
+            throw new NotImplementedException();
+        }
+
+        Dictionary<string, int> IVendorDataSources.FilterTotal(IRequest request, string key, string lang, Dictionary<string, List<DataSource.FilterGroup>> filter, Dictionary<string, List<DataSource.OrderBy>> orderBy, string[] childKeys)
+        {
+            throw new NotImplementedException();
         }
     }
 }

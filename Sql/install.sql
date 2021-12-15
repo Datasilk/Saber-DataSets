@@ -22,11 +22,11 @@ GO
 
 CREATE TABLE [dbo].[DataSets_Relationships]
 (
-	[parentName] INT NOT NULL, 
-    [childName] INT NOT NULL, 
+	[parentId] INT NOT NULL, 
+    [childId] INT NOT NULL, 
     [parentList] NVARCHAR(32) NOT NULL, 
     [childColumn] NVARCHAR(32) NOT NULL
-    PRIMARY KEY (parentName, childName)
+    PRIMARY KEY ([parentId], [childId])
 )
 
 GO
@@ -53,6 +53,7 @@ GO
 CREATE PROCEDURE [dbo].[DataSets_GetList]
 	@userId int NULL = NULL,
 	@all bit = 0,
+	@noadmin bit = 0,
 	@search nvarchar(MAX)
 AS
 	DECLARE @isadmin bit = 0
@@ -68,15 +69,12 @@ AS
 		(
 			@userId IS NOT NULL
 			AND (
-				(@all = 1 AND (userId IS NULL OR userId = @userId))
-				OR (@all = 0 AND userId = @userId)
+				(@all = 1 AND (userId IS NULL OR userId = @userId OR @noadmin = 1))
+				OR (@all = 0 AND (userId = @userId OR @noadmin = 1))
 			)
 		)
-		OR
-		(
-			@isadmin = 1 --Admin account
-			AND @all = 1
-		)
+		OR (@isadmin = 1 AND @all = 1)
+		OR (@noadmin = 1 AND @all = 1)
 		OR
 		(
 			@userId IS NULL 
@@ -100,18 +98,54 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+CREATE PROCEDURE [dbo].[DataSets_Relationships_GetAll]
+	
+AS
+	SELECT r.*, 
+	parent.[label] AS parentLabel,
+	child.[label] AS childLabel,
+	parent.tableName AS parentTableName,
+	child.tableName AS childTableName
+	FROM Datasets_Relationships r
+	CROSS APPLY (SELECT * FROM Datasets WHERE datasetId=r.parentId) AS parent
+	CROSS APPLY (SELECT * FROM Datasets WHERE datasetId=r.childId) AS child
+	ORDER BY childTableName ASC
+/* ////////////////////////////////////////////////////////////////////////////////////// */
+
+GO
+
+/* ////////////////////////////////////////////////////////////////////////////////////// */
+
+CREATE PROCEDURE [dbo].[DataSets_Relationships_GetList]
+	@parentId int
+AS
+	SELECT r.*, 
+	parent.[label] AS parentLabel,
+	child.[label] AS childLabel,
+	parent.tableName AS parentTableName,
+	child.tableName AS childTableName
+	FROM Datasets_Relationships r
+	CROSS APPLY (SELECT * FROM Datasets WHERE datasetId=r.parentId) AS parent
+	CROSS APPLY (SELECT * FROM Datasets WHERE datasetId=r.childId) AS child
+	WHERE r.parentId=@parentId ORDER BY childTableName ASC
+/* ////////////////////////////////////////////////////////////////////////////////////// */
+
+GO
+
+/* ////////////////////////////////////////////////////////////////////////////////////// */
+
 CREATE PROCEDURE [dbo].[DataSets_Relationship_Create]
-	@parentName nvarchar(32),
-	@childName nvarchar(32),
+	@parentId INT,
+	@childId INT,
 	@parentList nvarchar(32),
 	@childColumn nvarchar(32)
 AS
-	IF EXISTS(SELECT * FROM Datasets_Relationships WHERE parentName=@parentName AND childName=@childName) BEGIN
-		DELETE FROM Datasets_Relationships WHERE parentName=@parentName AND childName=@childName
+	IF EXISTS(SELECT * FROM Datasets_Relationships WHERE parentId=@parentId AND childId=@childId) BEGIN
+		DELETE FROM Datasets_Relationships WHERE parentId=@parentId AND childId=@childId
 	END
 
-	INSERT INTO Datasets_Relationships (parentName, childName, parentList, childColumn)
-	VALUES (@parentName, @childName, @parentList, @childColumn)
+	INSERT INTO Datasets_Relationships (parentId, childId, parentList, childColumn)
+	VALUES (@parentId, @childId, @parentList, @childColumn)
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
 GO
@@ -228,6 +262,7 @@ CREATE PROCEDURE [dbo].[DataSet_Create]
 			<column name="label" datatype="text" maxlength="64"></column>
 			<column name="description" datatype="text" maxlength="max"></column>
 			<column name="datecreated" datatype="datetime" default="now"></column>
+			<column name="list-team" datatype="list" default=""></column>
 		</columns>
 	*/
 AS
@@ -278,7 +313,9 @@ AS
 		) AS x
 	
 		DECLARE @cursor CURSOR 
-		DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), @default nvarchar(32), @dataset nvarchar(32), @listname nvarchar(32)
+		DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), 
+			@default nvarchar(32), @dataset nvarchar(32), @listname nvarchar(32),
+			@newname nvarchar(32)
 		SET @cursor = CURSOR FOR
 		SELECT [name], [datatype],[maxlength], [default], [dataset], [listname] FROM @cols
 		OPEN @cursor
@@ -313,7 +350,11 @@ AS
 			IF @datatype = 'relationship' BEGIN
 				SET @sql = @sql + '[' + @name + '] INT NOT NULL DEFAULT 0'
 				SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
-				SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentName=''' + @dataset + ''', @childName=''' + @tableName + ''', @parentList=''' + @listName + ', @childColumn=''' + @name + '''' + CHAR(13) 
+				SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=' + @dataset + ', @childId=#datasetId#, @parentList=''' + @listName + ''', @childColumn=''' + @name + '''' + CHAR(13) 
+			END
+			IF @datatype = 'list' BEGIN
+				SET @newname = REPLACE(@name, '-', '_')
+				SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL'
 			END
 			FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
 			SET @sql = @sql + ', '
@@ -328,15 +369,21 @@ AS
 		--execute generated SQL code
 		EXECUTE sp_executesql @sql
 		EXECUTE sp_executesql @indexes
-		IF @relationships != '' BEGIN
-			EXECUTE sp_executesql @relationships
-		END
 
 		--finally, record dataset info
 		INSERT INTO DataSets (userId, [label], tableName, partialview, [description], datecreated, deleted)
 		VALUES (@userId, @label, @tablename, @partialview, @description, GETUTCDATE(), 0)
 
-		SELECT datasetId FROM DataSets WHERE tableName=@tablename
+		DECLARE @datasetId int
+		SELECT @datasetId = datasetId FROM DataSets WHERE tableName=@tablename
+		
+		IF @relationships != '' BEGIN
+			DECLARE @finalsql nvarchar(MAX) = REPLACE(@relationships, '#datasetId#', CONVERT(nvarchar(MAX), @datasetId))
+			EXECUTE sp_executesql @finalsql
+		END
+
+		SELECT @datasetId
+
 	END
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
@@ -355,8 +402,59 @@ AS
 	SET @sql = 'DROP SEQUENCE Sequence_DataSet_' + @tableName
 	EXEC sp_executesql @sql
 	DELETE FROM DataSets WHERE datasetId=@datasetId
+	DELETE FROM DataSets_Relationships WHERE parentId=@datasetId OR childId=@datasetId
 
 
+/* ////////////////////////////////////////////////////////////////////////////////////// */
+
+GO
+
+/* ////////////////////////////////////////////////////////////////////////////////////// */
+
+CREATE PROCEDURE [dbo].[DataSet_DeleteRecord]
+	@datasetId int,
+	@recordId int
+AS
+	DECLARE @tableName nvarchar(64)
+	SELECT @tableName=tableName FROM DataSets WHERE datasetId=@datasetId
+	DECLARE @sql nvarchar(MAX) = 'DELETE FROM DataSet_' + @tableName + ' WHERE Id=' + CONVERT(nvarchar(MAX), @recordId)
+	EXEC sp_executesql @sql
+
+	DECLARE @cursor CURSOR, @column nvarchar(32), @childId int
+	SET @cursor = CURSOR FOR
+	SELECT childId, childColumn FROM DataSets_Relationships
+	WHERE parentId=@datasetId
+	OPEN @cursor
+	FETCH FROM @cursor INTO @childId, @column
+	WHILE @@FETCH_STATUS = 0 BEGIN
+		-- delete all records from relationship tables that reference recordId
+		SET @tableName = ''
+		SELECT @tableName = tableName FROM DataSets WHERE datasetId=@childId
+		IF @tableName != '' BEGIN
+			SET @sql = 'DELETE FROM DataSet_' + @tableName + ' WHERE ' + @column + '=' + CONVERT(nvarchar(MAX), @recordId)
+			PRINT @sql
+			EXEC sp_executesql @sql
+		END
+		FETCH FROM @cursor INTO @childId, @column
+	END
+	CLOSE @cursor
+	DEALLOCATE @cursor
+
+/* ////////////////////////////////////////////////////////////////////////////////////// */
+
+GO
+
+/* ////////////////////////////////////////////////////////////////////////////////////// */
+
+CREATE PROCEDURE [dbo].[DataSet_GetAllColumns]
+AS
+	SELECT d.datasetId, columns.[Name] FROM DataSets d
+	CROSS APPLY(
+		SELECT c.[name] AS [Name]
+		FROM sys.columns c
+		WHERE c.object_id = OBJECT_ID('DataSet_' + d.tableName)
+		AND c.[name] NOT IN ('id', 'lang', 'userId', 'datecreated', 'datemodified')
+	) AS columns
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
 GO
@@ -368,8 +466,9 @@ CREATE PROCEDURE [dbo].[DataSet_GetColumns]
 AS
 	DECLARE @tableName nvarchar(64)
 	SELECT @tableName = tableName FROM DataSets WHERE datasetId=@datasetId
-	SELECT c.[name] AS [Name]
+	SELECT c.[name], t.name AS datatype
 	FROM sys.columns c
+	JOIN sys.types t ON t.system_type_id = c.system_type_id AND t.system_type_id = t.user_type_id
 	WHERE c.object_id = OBJECT_ID('DataSet_' + @tableName)
 	AND c.[name] NOT IN ('id', 'lang', 'userId', 'datecreated', 'datemodified')
 
@@ -390,83 +489,6 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
-CREATE PROCEDURE [dbo].[DataSet_GetRecords]
-	@datasetId int,
-	@userId int = 0,
-	@start int = 1,
-	@length int = 50,
-	@lang nvarchar(MAX) = '',
-	@search nvarchar(MAX) = '',
-	@searchtype int = 0, -- 0 = LIKE %x%, 1 = LIKE x% (starts with), 2 = LIKE %x (ends with), -1 = exact match
-	@recordId int = 0,
-	@orderby nvarchar(MAX) = ''
-AS
-	SET NOCOUNT ON
-	DECLARE @tableName nvarchar(64)
-	SELECT @tableName=tableName FROM DataSets WHERE datasetId=@datasetId
-	IF @lang = '' SET @lang = 'en'
-
-	DECLARE @sql nvarchar(MAX) = 'SELECT u.name AS username, u.email AS useremail, d.* ' + 
-		'FROM DataSet_' + @tableName + ' d ' + 
-		'LEFT JOIN Users u ON u.userId=d.userId ' +
-		'WHERE' +
-		(CASE WHEN @userId > 0 THEN ' d.userId=' + CONVERT(nvarchar(16), @userId) + ' AND' ELSE '' END) + ' d.lang=''' + @lang + ''''
-	
-	IF @search IS NOT NULL AND @search != '' BEGIN
-		--get table columns
-		SELECT c.[name] AS col
-		INTO #cols 
-		FROM sys.columns c
-		INNER JOIN sys.types t ON c.user_type_id = t.user_type_id
-		WHERE c.object_id = OBJECT_ID('DataSet_' + @tableName)
-		AND t.[Name] LIKE '%varchar%'
-		AND c.[name] NOT IN ('lang', 'userId')
-
-		SET @sql += ' AND ('
-
-		DECLARE @cursor1 CURSOR, @column nvarchar(32)
-		SET @cursor1 = CURSOR FOR 
-		SELECT col FROM #cols
-		OPEN @cursor1
-		FETCH FROM @cursor1 INTO @column
-		WHILE @@FETCH_STATUS = 0 BEGIN
-			SET @sql += 'd.[' + @column + '] ' + 
-				CASE WHEN @searchtype >= 0 THEN 'LIKE ''' ELSE ' = ''' + @search + '''' END +
-				CASE WHEN @searchtype = 0 THEN '%' + @search + '%' ELSE '' END +
-				CASE WHEN @searchtype = 1 THEN @search + '%' ELSE '' END +
-				CASE WHEN @searchtype = 2 THEN '%' + @search ELSE '' END +
-				CASE WHEN @searchtype >= 0 THEN '''' ELSE '' END
-			FETCH FROM @cursor1 INTO @column
-			IF @@FETCH_STATUS = 0 BEGIN
-				SET @sql = @sql + ' OR '
-			END
-		END
-		CLOSE @cursor1
-		DEALLOCATE @cursor1
-		SET @sql += ')'
-	END
-
-	IF @recordId > 0 BEGIN
-		SET @sql += ' AND d.Id=' + CONVERT(nvarchar(16), @recordId)
-	END
-
-	-- include orderby clause
-	IF @recordId <= 0 AND @orderby IS NOT NULL AND @orderby != '' BEGIN
-		SET @sql = @sql + ' ORDERBY ' + @orderby
-	END
-
-	--PRINT @sql
-
-	--execute generated SQL code
-	EXECUTE sp_executesql @sql
-	
-
-/* ////////////////////////////////////////////////////////////////////////////////////// */
-
-GO
-
-/* ////////////////////////////////////////////////////////////////////////////////////// */
-
 CREATE PROCEDURE [dbo].[DataSet_UpdateColumns]
 	@datasetId int,
 	@columns XML 
@@ -475,6 +497,7 @@ CREATE PROCEDURE [dbo].[DataSet_UpdateColumns]
 			<column name="label" datatype="text" maxlength="64"></column>
 			<column name="description" datatype="text" maxlength="max"></column>
 			<column name="datecreated" datatype="datetime" default="now"></column>
+			<column name="list-team" datatype="list" default=""></column>
 		</columns>
 	*/
 AS
@@ -485,35 +508,42 @@ AS
 	--update existing table for this dataset
 	DECLARE @sql nvarchar(MAX) = 'ALTER TABLE [dbo].[DataSet_' + @tablename + '] ADD '
 	DECLARE @indexes nvarchar(MAX) = ''
+	DECLARE @relationships nvarchar(MAX) = ''
 		
 	DECLARE @hdoc INT
 	DECLARE @cols TABLE (
 		[name] nvarchar(32),
 		datatype varchar(32),
 		[maxlength] varchar(32),
-		[default] varchar(32)
+		[default] varchar(32),
+		[dataset] varchar(32),
+		[listname] varchar(32)
 	)
 	EXEC sp_xml_preparedocument @hdoc OUTPUT, @columns;
 
 	/* create new addressbook entries based on email list */
 	INSERT INTO @cols
-	SELECT x.[name], x.datatype, x.[maxlength], x.[default]
+	SELECT x.[name], x.datatype, x.[maxlength], x.[default], x.[dataset], x.[listname]
 	FROM (
 		SELECT * FROM OPENXML( @hdoc, '//column', 2)
 		WITH (
 			[name] nvarchar(32) '@name',
 			datatype nvarchar(32) '@datatype',
 			[maxlength] nvarchar(32) '@maxlength',
-			[default] nvarchar(32) '@default'
+			[default] nvarchar(32) '@default',
+			[dataset] nvarchar(32) '@dataset',
+			[listname] nvarchar(32) '@listname'
 		)
 	) AS x
 	
 	DECLARE @cursor CURSOR 
-	DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), @default nvarchar(32)
+	DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), 
+		@default nvarchar(32), @dataset nvarchar(32), @listname nvarchar(32),
+		@newname nvarchar(32)
 	SET @cursor = CURSOR FOR
-	SELECT [name], [datatype],[maxlength], [default] FROM @cols
+	SELECT [name], [datatype],[maxlength], [default], [dataset], [listname] FROM @cols
 	OPEN @cursor
-	FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default
+	FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
 	WHILE @@FETCH_STATUS = 0 BEGIN
 		SET @maxlength = ISNULL(@maxlength, '64')
 		IF @maxlength = '0' SET @maxlength = 'MAX'
@@ -541,7 +571,16 @@ AS
 			SET @sql = @sql + '[' + @name + '] DATETIME2(7) ' + CASE WHEN @default = 'now' THEN 'NOT NULL DEFAULT GETUTCDATE()' ELSE 'NULL' END
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
-		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default
+		IF @datatype = 'relationship' BEGIN
+			SET @sql = @sql + '[' + @name + '] INT NOT NULL DEFAULT 0'
+			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
+			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=' + @dataset + ', @childId=' + CONVERT(nvarchar(MAX), @datasetId) + ', @parentList=''' + @listName + ''', @childColumn=''' + @name + '''' + CHAR(13) 
+		END
+		IF @datatype = 'list' BEGIN
+			SET @newname = REPLACE(@name, '-', '_')
+			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NULL'
+		END
+		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
 		IF @@FETCH_STATUS = 0 SET @sql = @sql + ', '
 	END
 	CLOSE @cursor
@@ -553,6 +592,9 @@ AS
 	--execute generated SQL code
 	EXECUTE sp_executesql @sql
 	EXECUTE sp_executesql @indexes
+	IF @relationships != '' BEGIN
+		EXECUTE sp_executesql @relationships
+	END
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
@@ -578,6 +620,7 @@ GO
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
 CREATE PROCEDURE [dbo].[DataSet_UpdateRecord]
+	@userId int,
 	@datasetId int,
 	@recordId int = 0,
 	@lang nvarchar(16),
@@ -645,7 +688,7 @@ SET NOCOUNT ON
 					SET @sql += '[' + @name + '] = ' + @value
 				END 
 			END
-
+			PRINT @name + ', ' + @datatype + ', ' + @value
 			FETCH NEXT FROM @cursor INTO @name, @value
 			IF @@FETCH_STATUS = 0 AND @datatype != '' BEGIN
 				SET @sql += ', '

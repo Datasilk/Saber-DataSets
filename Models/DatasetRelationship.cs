@@ -2,8 +2,8 @@
 {
     public class DatasetRelationship
     {
-        public string parentId { get; set; }
-        public string childId { get; set; }
+        public int parentId { get; set; }
+        public int childId { get; set; }
         public string parentLabel { get; set; }
         public string childLabel { get; set; }
         public string parentTableName { get; set; }
