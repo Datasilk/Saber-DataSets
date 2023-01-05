@@ -26,7 +26,7 @@ AS
 
 		--create a new table for this dataset
 		SET @sql = 'CREATE TABLE [dbo].[DataSet_' + @tablename + '] (Id INT, lang NVARCHAR(16), userId int NOT NULL DEFAULT 1, ' + 
-					'datecreated DATETIME2(7), datemodified DATETIME2(2), '
+					'datecreated DATETIME2(7) NOT NULL DEFAULT GETUTCDATE(), datemodified DATETIME2(2) NOT NULL DEFAULT GETUTCDATE(), '
 		DECLARE @sqlVars nvarchar(MAX) = ''
 		DECLARE @sqlVals nvarchar(MAX) = ''
 		DECLARE @indexes nvarchar(MAX) = 'CREATE INDEX [IX_DataSet_' + @tableName + '_DateCreated] ON [dbo].[DataSet_' + @tableName + '] ([datecreated])' +

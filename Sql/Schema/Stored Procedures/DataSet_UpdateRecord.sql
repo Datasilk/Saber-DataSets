@@ -48,6 +48,7 @@ SET NOCOUNT ON
 
 	--first, check if record already exists
 	DECLARE @exists TABLE (value bit)
+	DECLARE @printline nvarchar(MAX)
 	INSERT INTO @exists EXEC sp_executesql @sql
 	IF EXISTS(SELECT * FROM @exists WHERE [value]=1) BEGIN
 		--record already exists
@@ -60,6 +61,8 @@ SET NOCOUNT ON
 			--get data type for column
 			SET @datatype = ''
 			SELECT @datatype = datatype FROM #cols WHERE col=@name
+			SET @printline = @name + ', datatype = ' + @datatype
+			--PRINT @printline
 			IF @datatype != '' BEGIN
 				IF @datatype = 'varchar' OR @datatype = 'nvarchar' OR @datatype = 'datetime2' BEGIN
 					SET @sql += '[' + @name + '] = ''' + REPLACE(@value, '''', '''''') + ''''
@@ -67,14 +70,16 @@ SET NOCOUNT ON
 					SET @sql += '[' + @name + '] = ' + @value
 				END 
 			END
-			PRINT @name + ', ' + @datatype + ', ' + @value
+			--PRINT @name + ', ' + @datatype + ', ' + @value
 			FETCH NEXT FROM @cursor INTO @name, @value
-			IF @@FETCH_STATUS = 0 AND @datatype != '' BEGIN
-				SET @sql += ', '
-			END
+			SET @sql += ', '
 		END
 		CLOSE @cursor
 		DEALLOCATE @cursor
+
+		--remove last comma, if any
+		SET @sql = SUBSTRING(@sql, 0, LEN(@sql) - 2)
+		--PRINT @sql
 
 		--finally, execute SQL string
 		SET @sql += ', datemodified=GETUTCDATE() WHERE Id=' + CONVERT(nvarchar(16), @recordId) + ' AND lang=''' + @lang + ''''

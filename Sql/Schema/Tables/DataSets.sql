@@ -5,7 +5,7 @@
     [label] NVARCHAR(64) NOT NULL, 
     [tableName] NVARCHAR(64) NOT NULL, 
     [partialview] NVARCHAR(255) NOT NULL DEFAULT '', 
-    [datecreated] DATETIME2 NOT NULL, 
+    [datecreated] DATETIME2 NOT NULL DEFAULT GETUTCDATE(), 
     [description] NVARCHAR(MAX) NOT NULL, 
     [deleted] BIT NOT NULL DEFAULT 0
 )

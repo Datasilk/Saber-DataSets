@@ -7,6 +7,6 @@ namespace Saber.Vendors.DataSets
         public string Name { get; set; } = "Data Sets";
         public string Description { get; set; } = "Create data sets that act like database tables by converting a partial view's mustache code into table columns.";
         public string Icon { get; set; }
-        public Version Version { get; set; } = "1.0.0.0";
+        public Vendor.Version Version { get; set; } = "1.0.0.0";
     }
 }
