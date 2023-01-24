@@ -41,6 +41,7 @@ namespace Query
             exactMatch = -1
         }
 
+        #region "Filter"
         public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string lang = "", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null, List<Saber.Vendor.DataSource.OrderBy> sort = null)
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources.Where(a => a.Key == datasetId.ToString()).FirstOrDefault();
@@ -161,50 +162,52 @@ namespace Query
                 if (childKeys != null && !childKeys.Contains("dataset-" + child.Child.Key)) { continue; }
                 var childId = int.Parse(child.Child.Key);
                 dataset = Saber.Vendors.DataSets.Cache.DataSets.Where(a => a.datasetId == childId).FirstOrDefault();
-
-                sql.Append(@"
-                GO
-
-                SELECT u.name AS username, u.email AS useremail, d.*
-                FROM DataSet_" + dataset.tableName + @" d
-                LEFT JOIN Users u ON u.userId=d.userId
-                WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"' 
-                AND d." + child.ChildColumn + @" IN (SELECT id FROM " + tmpTable + ")");
-
-                key = "dataset-" + childId.ToString();
-                if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
+                if(dataset != null)
                 {
-                    for (var x = 0; x < filters[key].Count; x++)
+                    sql.Append(@"
+                    GO
+
+                    SELECT u.name AS username, u.email AS useremail, d.*
+                    FROM DataSet_" + dataset.tableName + @" d
+                    LEFT JOIN Users u ON u.userId=d.userId
+                    WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"' 
+                    AND d." + child.ChildColumn + @" IN (SELECT id FROM " + tmpTable + ")");
+
+                    key = "dataset-" + childId.ToString();
+                    if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
                     {
-                        //generate root filter group sql
-                        var group = filters[key][x];
-                        sql.Append(" AND " + GetFilterGroupSql(group, datasource.Columns));
+                        for (var x = 0; x < filters[key].Count; x++)
+                        {
+                            //generate root filter group sql
+                            var group = filters[key][x];
+                            sql.Append(" AND " + GetFilterGroupSql(group, datasource.Columns));
+                        }
                     }
-                }
-                if (sort != null && sort.ContainsKey(key) && sort[key].Count > 0)
-                {
-                    sql.Append("\n ORDER BY ");
-                    for (var x = 0; x < sort[key].Count; x++)
+                    if (sort != null && sort.ContainsKey(key) && sort[key].Count > 0)
                     {
-                        //generate order by sql
-                        var orderby = sort[key][x];
-                        sql.Append(orderby.Column +
-                            (orderby.Direction == Saber.Vendor.DataSource.OrderByDirection.Ascending ? " ASC" : " DESC") +
-                            (x < sort[key].Count - 1 ? ", \n" : "\n"));
+                        sql.Append("\n ORDER BY ");
+                        for (var x = 0; x < sort[key].Count; x++)
+                        {
+                            //generate order by sql
+                            var orderby = sort[key][x];
+                            sql.Append(orderby.Column +
+                                (orderby.Direction == Saber.Vendor.DataSource.OrderByDirection.Ascending ? " ASC" : " DESC") +
+                                (x < sort[key].Count - 1 ? ", \n" : "\n"));
+                        }
                     }
+                    else
+                    {
+                        sql.Append("\n ORDER BY id");
+                    }
+                    var pos = positions != null && positions.ContainsKey(key) ? positions[key] :
+                        new Saber.Vendor.DataSource.PositionSettings() { Start = 1, Length = 1000 };
+                    if (pos.Start > 0)
+                    {
+                        sql.Append("\n OFFSET " + (pos.Start - 1) + " ROWS FETCH NEXT " + (parentPos.Length * pos.Length) + " ROWS ONLY");
+                    }
+                    sql.Append("\n\n\n");
+                    datasets.Add(dataset);
                 }
-                else
-                {
-                    sql.Append("\n ORDER BY id");
-                }
-                var pos = positions != null && positions.ContainsKey(key) ? positions[key] :
-                    new Saber.Vendor.DataSource.PositionSettings() { Start = 1, Length = 1000 };
-                if (pos.Start > 0)
-                {
-                    sql.Append("\n OFFSET " + (pos.Start - 1) + " ROWS FETCH NEXT " + (parentPos.Length * pos.Length) + " ROWS ONLY");
-                }
-                sql.Append("\n\n\n");
-                datasets.Add(dataset);
             }
             sql.Append("\nDROP TABLE " + tmpTable + "\n");
 
@@ -249,6 +252,136 @@ namespace Query
             }
             return results;
         }
+
+        public static int GetRecordCount(int datasetId, string lang = "", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null)
+        {
+            var datasource = Saber.Vendors.DataSets.Cache.DataSources.Where(a => a.Key == datasetId.ToString()).FirstOrDefault();
+            if (datasource == null) { return 0; }
+            var dataset = Saber.Vendors.DataSets.Cache.DataSets.Where(a => a.datasetId == datasetId).FirstOrDefault();
+            if (dataset == null) { return 0; }
+
+            var sql = new StringBuilder(@"
+                SELECT COUNT(*)
+                FROM DataSet_" + dataset.tableName + @" d
+		        LEFT JOIN Users u ON u.userId=d.userId
+                WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
+
+            if (filters != null && filters.Count > 0)
+            {
+                for (var x = 0; x < filters.Count; x++)
+                {
+                    //generate root filter group sql
+                    var group = filters[x];
+                    sql.Append(" AND " + GetFilterGroupSql(group, datasource.Columns));
+                }
+            }
+
+            var conn = new SqlConnection(Sql.ConnectionString);
+            var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
+            var reader = server.ConnectionContext.ExecuteReader(sql.ToString());
+            reader.Read();
+            return (int)reader[0];
+        }
+
+        public static Dictionary<string, int> GetRecordCountInRelationships(int datasetId, string lang = "", int userId = 0, Dictionary<string, List<Saber.Vendor.DataSource.FilterGroup>> filters = null, string[] childKeys = null)
+        {
+            var datasource = Saber.Vendors.DataSets.Cache.DataSources.Where(a => a.Key == datasetId.ToString()).FirstOrDefault();
+            if (datasource == null) { return null; }
+            var dataset = Saber.Vendors.DataSets.Cache.DataSets.Where(a => a.datasetId == datasetId).FirstOrDefault();
+            if (dataset == null) { return null; }
+            var datasets = new List<Models.DataSet>();
+            var rndId = (new Random()).Next(999, 999999);
+            var tmpTable = "#datasets_records_in_relationships_" + rndId;
+
+            //generate query for parent data set ///////////////////////////////////////////////////////////////////
+            var sql = new StringBuilder(@"
+            SELECT COUNT(*)
+            INTO " + tmpTable + @"
+            FROM DataSet_" + dataset.tableName + @" d
+            LEFT JOIN Users u ON u.userId=d.userId
+            WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
+
+            var key = "dataset-" + datasetId.ToString();
+            var keyId = datasetId.ToString();
+            if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
+            {
+                for (var x = 0; x < filters[key].Count; x++)
+                {
+                    //generate root filter group sql
+                    var group = filters[key][x];
+                    sql.Append(" AND " + GetFilterGroupSql(group, datasource.Columns));
+                }
+            }
+            
+            sql.Append("\n\n\n SELECT * FROM " + tmpTable);
+            datasets.Add(dataset);
+
+            foreach (var child in datasource.Relationships.Where(a => a.Key == keyId))
+            {
+                //generate queries for child data sets ///////////////////////////////////////////////////////////////
+                if (childKeys != null && !childKeys.Contains("dataset-" + child.Child.Key)) { continue; }
+                var childId = int.Parse(child.Child.Key);
+                dataset = Saber.Vendors.DataSets.Cache.DataSets.Where(a => a.datasetId == childId).FirstOrDefault();
+                if (dataset != null)
+                {
+                    sql.Append(@"
+                    GO
+
+                    SELECT COUNT(*)
+                    FROM DataSet_" + dataset.tableName + @" d
+                    LEFT JOIN Users u ON u.userId=d.userId
+                    WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"' 
+                    AND d." + child.ChildColumn + @" IN (SELECT id FROM " + tmpTable + ")");
+
+                    key = "dataset-" + childId.ToString();
+                    if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
+                    {
+                        for (var x = 0; x < filters[key].Count; x++)
+                        {
+                            //generate root filter group sql
+                            var group = filters[key][x];
+                            sql.Append(" AND " + GetFilterGroupSql(group, datasource.Columns));
+                        }
+                    }
+                    sql.Append("\n\n\n");
+                    datasets.Add(dataset);
+                }
+            }
+            sql.Append("\nDROP TABLE " + tmpTable + "\n");
+
+            //execute query ///////////////////////////////////////////////////////////////////////////////////////////////////
+            var results = new Dictionary<string, int>();
+            try
+            {
+                var conn = new SqlConnection(Sql.ConnectionString);
+                var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
+                var reader = server.ConnectionContext.ExecuteReader(sql.ToString());
+                var i = 0;
+                //read query results
+                do
+                {
+                    try
+                    {
+                        dataset = datasets[i];
+                        //get all rows for result
+                        reader.Read();
+                        results.Add(dataset.datasetId.ToString(), (int)reader[0]);
+                    }
+                    catch (Exception)
+                    {
+                    }
+
+                    i++;
+                } while (reader.NextResult());
+            }
+            catch (Exception)
+            {
+
+            }
+            return results;
+        }
+
+        #endregion
 
         private static string GetFilterGroupSql(Saber.Vendor.DataSource.FilterGroup group, Saber.Vendor.DataSource.Column[] columns)
         {

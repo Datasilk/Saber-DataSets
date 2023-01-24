@@ -27,7 +27,7 @@ namespace Saber.Vendors.DataSets
         public DataSource Get(string key)
         {
             //get information about a data set as a data source
-            return Cache.DataSources.Where(a => a.Key == key).FirstOrDefault();
+            return Cache.DataSources.Where(a => a.Key == key).FirstOrDefault() ?? new DataSource();
         }
 
         public void Create(IRequest request, string key, Dictionary<string, string> columns)
@@ -50,11 +50,16 @@ namespace Saber.Vendors.DataSets
         {
             //get filtered records from a data set
             var datasetId = int.Parse(key);
-            return Query.DataSets.GetRecords(datasetId, start, length, lang, request.User.UserId, filters, orderBy)?
-                .Select(a => a.ToDictionary(k => k.Key, v => v.Value == null ? "" : v.Value.ToString())).ToList();
+            var results = Query.DataSets.GetRecords(datasetId, start, length, lang, request.User.UserId, filters, orderBy)?
+                .Select(a => a.ToDictionary(k => k.Key, v => v.Value.ToString() ?? ""));
+            if(results == null)
+            {
+                return new List<Dictionary<string, string>>();
+            }
+            return results.ToList();
         }
 
-        public Dictionary<string, List<Dictionary<string, string>>> Filter(IRequest request, string key, string lang = "en", Dictionary<string, DataSource.PositionSettings> positions = null,  Dictionary<string, List<DataSource.FilterGroup>> filters = null, Dictionary<string, List<DataSource.OrderBy>> orderBy = null, string[] childKeys = null)
+        public Dictionary<string, List<Dictionary<string, string>>> Filter(IRequest request, string key, string lang = "en", Dictionary<string, DataSource.PositionSettings> positions = null, Dictionary<string, List<DataSource.FilterGroup>> filters = null, Dictionary<string, List<DataSource.OrderBy>> orderBy = null, string[] childKeys = null)
         {
             var datasetId = int.Parse(key);
             return Query.DataSets.GetRecordsInRelationships(datasetId, lang, request.User.UserId, positions, filters, orderBy, childKeys)?
@@ -65,20 +70,22 @@ namespace Saber.Vendors.DataSets
                         var c = new Dictionary<string, string>();
                         foreach(var k in b)
                         {
-                            c.Add(k.Key, k.Value.ToString());
+                            c.Add(k.Key, k.Value.ToString() ?? "");
                         }
                         return c;
                     }).ToList());
-                });
+                }) ?? new Dictionary<string, List<Dictionary<string, string>>>();
         }
-        int IVendorDataSources.FilterTotal(IRequest request, string key, string lang, List<DataSource.FilterGroup> filter, List<DataSource.OrderBy> orderBy)
+        int IVendorDataSources.FilterTotal(IRequest request, string key, string lang, List<DataSource.FilterGroup> filter)
         {
-            throw new NotImplementedException();
+            var datasetId = int.Parse(key);
+            return Query.DataSets.GetRecordCount(datasetId, lang, request.User.UserId, filter);
         }
 
-        Dictionary<string, int> IVendorDataSources.FilterTotal(IRequest request, string key, string lang, Dictionary<string, List<DataSource.FilterGroup>> filter, Dictionary<string, List<DataSource.OrderBy>> orderBy, string[] childKeys)
+        Dictionary<string, int> IVendorDataSources.FilterTotal(IRequest request, string key, string lang, Dictionary<string, List<DataSource.FilterGroup>> filters, string[] childKeys)
         {
-            throw new NotImplementedException();
+            var datasetId = int.Parse(key);
+            return Query.DataSets.GetRecordCountInRelationships(datasetId, lang, request.User.UserId, filters, childKeys);
         }
     }
 }
