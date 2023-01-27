@@ -203,6 +203,7 @@ S.editor.datasets = {
 
             function focusTab() {
                 //select tab & generate toolbar
+                S.editor.filebar.buttons.hide();
                 $('.tab.dataset-' + id + '-section').removeClass('hide');
                 S.editor.filebar.update(name, 'icon-dataset', $('.tab.dataset-' + id + '-section .temp-toolbar').html());
                 var txtsearch = $('.tab-toolbar .search-dataset');

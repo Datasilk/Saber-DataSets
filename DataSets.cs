@@ -39,7 +39,7 @@ namespace Saber.Vendors.DataSets
         public string GetCreateForm()
         {
             if (IsPublicApiRequest || !CheckSecurity("create-datasets")) { return AccessDenied(); }
-            return Saber.Cache.LoadFile("/Vendors/DataSets/create.html");
+            return Saber.Cache.LoadFile("/Vendors/DataSets/Views/create.html");
         }
 
         public string LoadColumns(string partial)
@@ -56,7 +56,7 @@ namespace Saber.Vendors.DataSets
                 return Error(ex.Message);
             }
 
-            var viewColumns = new View("/Vendors/DataSets/columns.html");
+            var viewColumns = new View("/Vendors/DataSets/Views/columns.html");
             viewColumns["summary"] = "Dataset columns were generated based on the partial view you selected. Please make any data type changes to your columns before continuing.";
             viewColumns["save-button"] = "Create Dataset";
             viewColumns["columns"] = html;
@@ -88,7 +88,7 @@ namespace Saber.Vendors.DataSets
             }
 
             //show popup modal to allow the user to choose data types for all new columns being added to the data set
-            var viewColumns = new View("/Vendors/DataSets/columns.html");
+            var viewColumns = new View("/Vendors/DataSets/Views/columns.html");
             viewColumns["summary"] = "New columns were found based on the partial view associated with this data set. Please make any data type changes to your new columns before continuing.";
             viewColumns["save-button"] = "Update Dataset";
             viewColumns["columns"] = html;
@@ -100,7 +100,7 @@ namespace Saber.Vendors.DataSets
         {
             var html = new StringBuilder();
             var view = new View("/Content/" + partial);
-            var viewColumn = new View("/Vendors/DataSets/column-field.html");
+            var viewColumn = new View("/Vendors/DataSets/Views/column-field.html");
             var cols = 0;
             var fieldElementInfo = new List<Models.ContentFieldElementInfo>();
             var optionsHtml = new StringBuilder("<option value=\"\" selected=\"selected\">[Select A Data Set]</option>");
@@ -211,8 +211,8 @@ namespace Saber.Vendors.DataSets
             if (IsPublicApiRequest || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
             var data = Query.DataSets.GetRecords(datasetId, start, length, lang, User.UserId, filters, sort);
-            var view = new View("/Vendors/DataSets/dataset.html");
-            var viewMenu = new View("/Vendors/DataSets/record-menu.html");
+            var view = new View("/Vendors/DataSets/Views/dataset.html");
+            var viewMenu = new View("/Vendors/DataSets/Views/record-menu.html");
             var header = new StringBuilder();
             var rows = new StringBuilder();
             var partial = new View("/Content/" + dataset.partialview);
@@ -223,7 +223,7 @@ namespace Saber.Vendors.DataSets
             if(relationships != null && relationships.Count > 0)
             {
                 var html = new StringBuilder();
-                var viewRelationship = new View("/Vendors/DataSets/relationship.html");
+                var viewRelationship = new View("/Vendors/DataSets/Views/relationship.html");
                 foreach(var rel in relationships)
                 {
                     viewRelationship.Clear();
@@ -244,9 +244,9 @@ namespace Saber.Vendors.DataSets
                 {
                     //load dataset column names in header row
                     i++;
-                    if( i <= 4 || (i == 5 && !User.IsAdmin)) 
+                    if( (i <= 4 && i != 3) || (i == 5 && !User.IsAdmin)) 
                     {
-                        //skip username, useremail, ID, lang, & userId columns
+                        //skip username, useremail, lang, & userId columns
                         continue; 
                     }else if((i == 5 && User.IsAdmin))
                     {
@@ -277,7 +277,7 @@ namespace Saber.Vendors.DataSets
                     foreach (var col in item)
                     {
                         i++;
-                        if (i <= 4) {
+                        if (i <= 4 && i != 3) {
                             //skip username, recordId, & lang columns
                             continue; 
                         } 
@@ -312,7 +312,7 @@ namespace Saber.Vendors.DataSets
         {
             if (IsPublicApiRequest || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
-            var view = new View("/Vendors/DataSets/update.html");
+            var view = new View("/Vendors/DataSets/Views/update.html");
             view["name"] = dataset.label;
             view["description"] = dataset.description;
             if (dataset.userId.HasValue) { view.Show("isprivate"); }
@@ -569,6 +569,14 @@ namespace Saber.Vendors.DataSets
                 nofields["filename"] = paths[paths.Length - 1];
                 return Response(nofields.Render());
             }
+
+
+            //render ID field as a read-only field
+            var fieldReadonly = new View("/Views/ContentFields/readonly.html");
+            fieldReadonly["title"] = "ID";
+            fieldReadonly["content"] = fields["Id"];
+            result = fieldReadonly.Render() + result;
+
             if (showlang == true)
             {
                 var viewlang = new View("/Views/ContentFields/showlang.html");
