@@ -561,7 +561,7 @@ namespace Saber.Vendors.DataSets
                 }
             }
 
-            var result = Common.Platform.ContentFields.RenderForm(this, "", view, language, container, fields, exclude?.ToArray(), fieldTypes);
+            var result = Saber.Core.ContentFields.RenderForm(this, "", view, language, container, fields, exclude?.ToArray(), fieldTypes);
 
             if (string.IsNullOrWhiteSpace(result))
             {
@@ -572,10 +572,13 @@ namespace Saber.Vendors.DataSets
 
 
             //render ID field as a read-only field
-            var fieldReadonly = new View("/Views/ContentFields/readonly.html");
-            fieldReadonly["title"] = "ID";
-            fieldReadonly["content"] = fields["Id"];
-            result = fieldReadonly.Render() + result;
+            if (fields.ContainsKey("Id"))
+            {
+                var fieldReadonly = new View("/Views/ContentFields/readonly.html");
+                fieldReadonly["title"] = "ID";
+                fieldReadonly["content"] = fields["Id"];
+                result = fieldReadonly.Render() + result;
+            }
 
             if (showlang == true)
             {
@@ -590,7 +593,7 @@ namespace Saber.Vendors.DataSets
             {
                 foreach (var item in parents)
                 {
-                    html.Append("<input type=\"hidden\" id=\"" + Common.Platform.ContentFields.GetFieldId(item.childKey) + "\" class=\"input-field\" value=\"" + recordId + "\"/>\n");
+                    html.Append("<input type=\"hidden\" id=\"" + Saber.Core.ContentFields.GetFieldId(item.childKey) + "\" class=\"input-field\" value=\"" + recordId + "\"/>\n");
                 }
             }
 

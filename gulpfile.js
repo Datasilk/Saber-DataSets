@@ -1,21 +1,33 @@
 var gulp = require('gulp'),
     sevenBin = require('7zip-bin'),
-    sevenZip = require('node-7z'),
-    less = require('gulp-less');
+    sevenZip = require('node-7z');
 
 var app = 'DataSets';
-var release = 'bin/Release/net5.0/';
+var release = 'bin/Release/net6.0/';
 var publish = 'bin/Publish/';
 
 function publishToPlatform(platform) {
+    gulp.src([
+        //include views
+        'Sql/install.sql', 'Sql/uninstall.sql'
+    ]).pipe(gulp.dest(publish + '/' + platform + '/' + app + '/Sql', { overwrite: true }));
+
+    gulp.src([
+        //include views
+        'Views/column-field.html', 'Views/columns.html', 'Views/create.html', 
+        'Views/dataset.html', 'Views/datasource-filter.html', 'Views/record-menu.html',
+        'Views/relationship.html', 'Views/update.html'
+    ]).pipe(gulp.dest(publish + '/' + platform + '/' + app + '/Views', { overwrite: true }));
+
     return gulp.src([
         //include custom resources
-        'column-field.html', 'columns.html', 'create.html', 'dataset.html', 'datasource-filter.html',
-        'editor.js', 'editor.less', 'icons.svg', 'record-menu.html', 'relationship.html', 'update.html',
+        'editor.js', 'editor.less', 'icons.svg', 'LICENSE', 'README.md',
         //include all files from published folder
         release + platform + '/publish/*',
         //exclude unwanted dependencies
         '!' + release + platform + '/publish/Core.dll',
+        '!' + release + platform + '/publish/Dapper.dll',
+        '!' + release + platform + '/publish/DOM.dll',
         '!' + release + platform + '/publish/Saber.Core.dll',
         '!' + release + platform + '/publish/Saber.Vendor.dll',
         '!' + release + platform + '/publish/*.deps.json'

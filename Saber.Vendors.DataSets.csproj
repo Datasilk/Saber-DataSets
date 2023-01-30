@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <RootNamespace>Saber.Vendors.DataSets</RootNamespace>
     <AssemblyName>Saber.Vendors.DataSets</AssemblyName>
     <Authors>Mark Entingh</Authors>
@@ -17,6 +17,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Saber.Core" Version="1.0.7.2" />
+    <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.12.0" />
+    <PackageReference Include="Saber.Core" Version="1.0.8.2" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.5" />
   </ItemGroup>
 </Project>

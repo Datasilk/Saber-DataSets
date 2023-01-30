@@ -5,7 +5,7 @@ CREATE TABLE [dbo].[DataSets]
     [label] NVARCHAR(64) NOT NULL, 
     [tableName] NVARCHAR(64) NOT NULL, 
     [partialview] NVARCHAR(255) NOT NULL DEFAULT '', 
-    [datecreated] DATETIME2 NOT NULL, 
+    [datecreated] DATETIME2 NOT NULL DEFAULT GETUTCDATE(), 
     [description] NVARCHAR(MAX) NOT NULL, 
     [deleted] BIT NOT NULL DEFAULT 0
 )
@@ -279,7 +279,7 @@ AS
 
 		--create a new table for this dataset
 		SET @sql = 'CREATE TABLE [dbo].[DataSet_' + @tablename + '] (Id INT, lang NVARCHAR(16), userId int NOT NULL DEFAULT 1, ' + 
-					'datecreated DATETIME2(7), datemodified DATETIME2(2), '
+					'datecreated DATETIME2(7) NOT NULL DEFAULT GETUTCDATE(), datemodified DATETIME2(2) NOT NULL DEFAULT GETUTCDATE(), '
 		DECLARE @sqlVars nvarchar(MAX) = ''
 		DECLARE @sqlVals nvarchar(MAX) = ''
 		DECLARE @indexes nvarchar(MAX) = 'CREATE INDEX [IX_DataSet_' + @tableName + '_DateCreated] ON [dbo].[DataSet_' + @tableName + '] ([datecreated])' +
@@ -666,6 +666,7 @@ SET NOCOUNT ON
 	DECLARE @sql nvarchar(MAX) = 'SELECT CASE WHEN EXISTS(SELECT * FROM DataSet_' + @tableName + ' WHERE Id=' + CONVERT(nvarchar(16), @recordId) + ' AND lang=''' + @lang + ''') THEN 1 ELSE 0 END AS [value]',
 	@name nvarchar(64), @value nvarchar(MAX), 
 	@cursor CURSOR, @datatype varchar(16)
+	PRINT @sql
 
 	--first, check if record already exists
 	DECLARE @exists TABLE (value bit)
@@ -688,11 +689,8 @@ SET NOCOUNT ON
 					SET @sql += '[' + @name + '] = ' + @value
 				END 
 			END
-			PRINT @name + ', ' + @datatype + ', ' + @value
 			FETCH NEXT FROM @cursor INTO @name, @value
-			IF @@FETCH_STATUS = 0 AND @datatype != '' BEGIN
-				SET @sql += ', '
-			END
+			IF @@FETCH_STATUS = 0 SET @sql += ', '
 		END
 		CLOSE @cursor
 		DEALLOCATE @cursor
@@ -705,5 +703,3 @@ SET NOCOUNT ON
 		--create new record
 		EXEC DataSet_AddRecord @datasetId=@datasetId, @recordId=@recordId, @lang=@lang, @fields=@fields
 	END
-
-
