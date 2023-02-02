@@ -184,7 +184,7 @@ namespace Saber.Vendors.DataSets
                 var datasource = new Saber.Vendors.DataSets.DataSources();
                 Core.DataSources.Add(new DataSourceInfo()
                 {
-                    Key = datasource.Prefix + "-" + key,
+                    Key = datasource.Prefix + "-" + id,
                     Name = name,
                     Description = description,
                     Helper = datasource
