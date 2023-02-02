@@ -20,5 +20,9 @@ DROP PROCEDURE DataSets_Relationships_GetList
 
 --remove all user-created datasets
 DECLARE @sql nvarchar(MAX)
-SELECT @sql=STRING_AGG('DROP TABLE ' + TABLE_NAME, ' GO ') FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE 'DataSet_%'
+SELECT @sql=STRING_AGG('DROP TABLE ' + TABLE_NAME, char(10)) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE 'DataSet_%'
+EXECUTE sp_executesql @sql
+
+--remove all user-created sequences
+SELECT @sql=STRING_AGG('DROP SEQUENCE ' + SEQUENCE_NAME, char(10)) FROM INFORMATION_SCHEMA.SEQUENCES WHERE SEQUENCE_NAME LIKE 'Sequence_DataSet_%'
 EXECUTE sp_executesql @sql
