@@ -179,7 +179,16 @@ namespace Saber.Vendors.DataSets
             if(columns == null || columns.Count <= 0 || columns[0].Name == null || columns[0].Name == "") { return Error("No columns were defined"); }
             try
             {
+                var key = name.Replace(" ", "_");
                 var id = Query.DataSets.Create(name, partial, description, columns, isprivate == true ? User.UserId : null);
+                var datasource = new Saber.Vendors.DataSets.DataSources();
+                Core.DataSources.Add(new DataSourceInfo()
+                {
+                    Key = datasource.Prefix + "-" + key,
+                    Name = name,
+                    Description = description,
+                    Helper = datasource
+                });
                 Cache.DataSources = null;
                 return id > 0 ? id.ToString() : Error("An error occurred when trying to create a new data set");
             }

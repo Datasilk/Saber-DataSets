@@ -17,3 +17,8 @@ DROP PROCEDURE DataSets_GetList
 DROP PROCEDURE DataSets_Relationship_Create
 DROP PROCEDURE DataSets_Relationships_GetAll
 DROP PROCEDURE DataSets_Relationships_GetList
+
+--remove all user-created datasets
+DECLARE @sql nvarchar(MAX)
+SELECT @sql=STRING_AGG('DROP TABLE ' + TABLE_NAME, ' GO ') FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE 'DataSet_%'
+EXECUTE sp_executesql @sql

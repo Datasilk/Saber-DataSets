@@ -51,7 +51,7 @@ namespace Saber.Vendors.DataSets
             //get filtered records from a data set
             var datasetId = int.Parse(key);
             var results = Query.DataSets.GetRecords(datasetId, start, length, lang, request.User.UserId, filters, orderBy)?
-                .Select(a => a.ToDictionary(k => k.Key, v => v.Value.ToString() ?? ""));
+                .Select(a => a.ToDictionary(k => k.Key, v => v.Value?.ToString() ?? ""));
             if(results == null)
             {
                 return new List<Dictionary<string, string>>();
