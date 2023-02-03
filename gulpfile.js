@@ -6,40 +6,41 @@ var app = 'DataSets';
 var release = 'bin/Release/net6.0/';
 var publish = 'bin/Publish/';
 
-function publishToPlatform(platform) {
+function publishToPlatform() {
     gulp.src([
         //include views
         'Sql/install.sql', 'Sql/uninstall.sql'
-    ]).pipe(gulp.dest(publish + '/' + platform + '/' + app + '/Sql', { overwrite: true }));
+    ]).pipe(gulp.dest(publish + '/' + app + '/Sql', { overwrite: true }));
 
     gulp.src([
         //include views
         'Views/column-field.html', 'Views/columns.html', 'Views/create.html', 
         'Views/dataset.html', 'Views/datasource-filter.html', 'Views/record-menu.html',
         'Views/relationship.html', 'Views/update.html'
-    ]).pipe(gulp.dest(publish + '/' + platform + '/' + app + '/Views', { overwrite: true }));
+    ]).pipe(gulp.dest(publish + '/' + app + '/Views', { overwrite: true }));
 
     return gulp.src([
         //include custom resources
         'editor.js', 'editor.less', 'icons.svg', 'LICENSE', 'README.md',
         //include all files from published folder
-        release + platform + '/publish/*',
+        release + '/publish/*',
         //exclude unwanted dependencies
-        '!' + release + platform + '/publish/Core.dll',
-        '!' + release + platform + '/publish/Dapper.dll',
-        '!' + release + platform + '/publish/DOM.dll',
-        '!' + release + platform + '/publish/Saber.Core.dll',
-        '!' + release + platform + '/publish/Saber.Vendor.dll',
-        '!' + release + platform + '/publish/*.deps.json'
-    ]).pipe(gulp.dest(publish + '/' + platform + '/' + app, { overwrite: true }));
+        '!' + release + '/publish/Core.dll',
+        '!' + release + '/publish/Dapper.dll',
+        '!' + release + '/publish/DOM.dll',
+        '!' + release + '/publish/Saber.Core.dll',
+        '!' + release + '/publish/Saber.Vendor.dll',
+        '!' + release + '/publish/*.deps.json',
+        '!' + release + '/publish/Azure.*.dll',
+        '!' + release + '/publish/Microsoft.*.dll',
+        '!' + release + '/publish/Newtonsoft.*.dll',
+        '!' + release + '/publish/System.*.dll',
+        '!' + release + '/publish/sni.dll'
+    ]).pipe(gulp.dest(publish + '/' + app, { overwrite: true }));
 }
 
-gulp.task('publish:win-x64', () => {
-    return publishToPlatform('win-x64');
-});
-
-gulp.task('publish:linux-x64', () => {
-    return publishToPlatform('linux-x64');
+gulp.task('publish:x64', () => {
+    return publishToPlatform();
 });
 
 gulp.task('zip', () => {
@@ -55,4 +56,4 @@ gulp.task('zip', () => {
     return gulp.src('.');
 });
 
-gulp.task('publish', gulp.series('publish:win-x64', 'publish:linux-x64', 'zip'));
+gulp.task('publish', gulp.series('publish:x64', 'zip'));
