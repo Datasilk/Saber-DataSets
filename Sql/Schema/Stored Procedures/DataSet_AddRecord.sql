@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSet_AddRecord]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSet_AddRecord]
+GO
+CREATE PROCEDURE [dbo].[DataSet_AddRecord]
 	@datasetId int,
 	@userId int = 0,
 	@recordId int = 0,

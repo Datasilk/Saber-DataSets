@@ -50,6 +50,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSets_GetList]
+GO
 CREATE PROCEDURE [dbo].[DataSets_GetList]
 	@userId int NULL = NULL,
 	@all bit = 0,
@@ -98,6 +100,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSets_Relationships_GetAll]
+GO
 CREATE PROCEDURE [dbo].[DataSets_Relationships_GetAll]
 	
 AS
@@ -116,6 +120,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSets_Relationships_GetList]
+GO
 CREATE PROCEDURE [dbo].[DataSets_Relationships_GetList]
 	@parentId int
 AS
@@ -134,6 +140,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSets_Relationship_Create]
+GO
 CREATE PROCEDURE [dbo].[DataSets_Relationship_Create]
 	@parentId INT,
 	@childId INT,
@@ -152,6 +160,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSet_AddRecord]
+GO
 CREATE PROCEDURE [dbo].[DataSet_AddRecord]
 	@datasetId int,
 	@userId int = 0,
@@ -251,6 +261,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSet_Create]
+GO
 CREATE PROCEDURE [dbo].[DataSet_Create]
 	@userId int NULL = NULL,
 	@label nvarchar(64),
@@ -392,6 +404,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSet_Delete]
+GO
 CREATE PROCEDURE [dbo].[DataSet_Delete]
 	@datasetId int
 AS
@@ -411,6 +425,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSet_DeleteRecord]
+GO
 CREATE PROCEDURE [dbo].[DataSet_DeleteRecord]
 	@datasetId int,
 	@recordId int
@@ -446,6 +462,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSet_GetAllColumns]
+GO
 CREATE PROCEDURE [dbo].[DataSet_GetAllColumns]
 AS
 	SELECT d.datasetId, columns.[Name] FROM DataSets d
@@ -461,6 +479,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSet_GetColumns]
+GO
 CREATE PROCEDURE [dbo].[DataSet_GetColumns]
 	@datasetId int
 AS
@@ -478,6 +498,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSet_GetInfo]
+GO
 CREATE PROCEDURE [dbo].[DataSet_GetInfo]
 	@datasetId int
 AS
@@ -489,6 +511,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSet_UpdateColumns]
+GO
 CREATE PROCEDURE [dbo].[DataSet_UpdateColumns]
 	@datasetId int,
 	@columns XML 
@@ -602,6 +626,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSet_UpdateInfo]
+GO
 CREATE PROCEDURE [dbo].[DataSet_UpdateInfo]
 	@datasetId int,
 	@userId int NULL,
@@ -619,6 +645,8 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
+DROP PROCEDURE IF EXISTS [dbo].[DataSet_UpdateRecord]
+GO
 CREATE PROCEDURE [dbo].[DataSet_UpdateRecord]
 	@userId int,
 	@datasetId int,

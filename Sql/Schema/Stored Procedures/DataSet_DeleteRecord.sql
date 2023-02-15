@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSet_DeleteRecord]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSet_DeleteRecord]
+GO
+CREATE PROCEDURE [dbo].[DataSet_DeleteRecord]
 	@datasetId int,
 	@recordId int
 AS

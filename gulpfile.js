@@ -3,12 +3,12 @@ var gulp = require('gulp'),
     sevenZip = require('node-7z');
 
 var app = 'DataSets';
-var release = 'bin/Release/net6.0/';
+var release = 'bin/Release/net6.0/win-x64/publish/';
 var publish = 'bin/Publish/';
 
 function publishToPlatform() {
     gulp.src([
-        //include views
+        //include Sql resources
         'Sql/install.sql', 'Sql/uninstall.sql'
     ]).pipe(gulp.dest(publish + '/' + app + '/Sql', { overwrite: true }));
 
@@ -22,20 +22,8 @@ function publishToPlatform() {
     return gulp.src([
         //include custom resources
         'editor.js', 'editor.less', 'icons.svg', 'LICENSE', 'README.md',
-        //include all files from published folder
-        release + '/publish/*',
-        //exclude unwanted dependencies
-        '!' + release + '/publish/Core.dll',
-        '!' + release + '/publish/Dapper.dll',
-        '!' + release + '/publish/DOM.dll',
-        '!' + release + '/publish/Saber.Core.dll',
-        '!' + release + '/publish/Saber.Vendor.dll',
-        '!' + release + '/publish/*.deps.json',
-        '!' + release + '/publish/Azure.*.dll',
-        '!' + release + '/publish/Microsoft.*.dll',
-        '!' + release + '/publish/Newtonsoft.*.dll',
-        '!' + release + '/publish/System.*.dll',
-        '!' + release + '/publish/sni.dll'
+        //include all neccessary files from published folder
+        release + 'Saber.Vendors.DataSets.dll'
     ]).pipe(gulp.dest(publish + '/' + app, { overwrite: true }));
 }
 

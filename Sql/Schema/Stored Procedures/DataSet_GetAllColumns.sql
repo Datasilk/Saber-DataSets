@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSet_GetAllColumns]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSet_GetAllColumns]
+GO
+CREATE PROCEDURE [dbo].[DataSet_GetAllColumns]
 AS
 	SELECT d.datasetId, columns.[Name] FROM DataSets d
 	CROSS APPLY(

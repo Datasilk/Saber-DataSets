@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSets_Relationships_GetList]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSets_Relationships_GetList]
+GO
+CREATE PROCEDURE [dbo].[DataSets_Relationships_GetList]
 	@parentId int
 AS
 	SELECT r.*, 

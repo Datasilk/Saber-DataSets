@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSet_UpdateInfo]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSet_UpdateInfo]
+GO
+CREATE PROCEDURE [dbo].[DataSet_UpdateInfo]
 	@datasetId int,
 	@userId int NULL,
 	@label nvarchar(64),

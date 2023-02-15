@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSets_Relationships_GetAll]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSets_Relationships_GetAll]
+GO
+CREATE PROCEDURE [dbo].[DataSets_Relationships_GetAll]
 	
 AS
 	SELECT r.*, 

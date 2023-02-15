@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSets_GetList]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSets_GetList]
+GO
+CREATE PROCEDURE [dbo].[DataSets_GetList]
 	@userId int NULL = NULL,
 	@all bit = 0,
 	@noadmin bit = 0,

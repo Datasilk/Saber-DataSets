@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSet_UpdateColumns]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSet_UpdateColumns]
+GO
+CREATE PROCEDURE [dbo].[DataSet_UpdateColumns]
 	@datasetId int,
 	@columns XML 
 	/* example:	

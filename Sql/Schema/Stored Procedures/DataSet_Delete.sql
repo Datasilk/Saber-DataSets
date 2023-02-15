@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSet_Delete]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSet_Delete]
+GO
+CREATE PROCEDURE [dbo].[DataSet_Delete]
 	@datasetId int
 AS
 	DECLARE @tableName nvarchar(64)

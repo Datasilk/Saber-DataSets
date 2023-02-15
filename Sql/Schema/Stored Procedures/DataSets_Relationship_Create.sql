@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSets_Relationship_Create]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSets_Relationship_Create]
+GO
+CREATE PROCEDURE [dbo].[DataSets_Relationship_Create]
 	@parentId INT,
 	@childId INT,
 	@parentList nvarchar(32),

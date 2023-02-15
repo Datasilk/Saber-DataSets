@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSet_GetColumns]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSet_GetColumns]
+GO
+CREATE PROCEDURE [dbo].[DataSet_GetColumns]
 	@datasetId int
 AS
 	DECLARE @tableName nvarchar(64)

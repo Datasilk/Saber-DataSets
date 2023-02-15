@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE [dbo].[DataSet_Create]
+﻿DROP PROCEDURE IF EXISTS [dbo].[DataSet_Create]
+GO
+CREATE PROCEDURE [dbo].[DataSet_Create]
 	@userId int NULL = NULL,
 	@label nvarchar(64),
 	@description nvarchar(MAX),
