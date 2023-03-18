@@ -1,18 +1,24 @@
-CREATE TABLE [dbo].[DataSets]
-(
-	[datasetId] INT IDENTITY(1,1) PRIMARY KEY, 
-    [userId] INT NULL, 
-    [label] NVARCHAR(64) NOT NULL, 
-    [tableName] NVARCHAR(64) NOT NULL, 
-    [partialview] NVARCHAR(255) NOT NULL DEFAULT '', 
-    [datecreated] DATETIME2 NOT NULL DEFAULT GETUTCDATE(), 
-    [description] NVARCHAR(MAX) NOT NULL, 
-    [deleted] BIT NOT NULL DEFAULT 0
-)
+BEGIN TRY
+    CREATE TABLE [dbo].[DataSets]
+    (
+	    [datasetId] INT IDENTITY(1,1) PRIMARY KEY, 
+        [userId] INT NULL, 
+        [label] NVARCHAR(64) NOT NULL, 
+        [tableName] NVARCHAR(64) NOT NULL, 
+        [partialview] NVARCHAR(255) NOT NULL DEFAULT '', 
+        [datecreated] DATETIME2 NOT NULL DEFAULT GETUTCDATE(), 
+        [description] NVARCHAR(MAX) NOT NULL, 
+        [deleted] BIT NOT NULL DEFAULT 0
+    )
+END TRY
+BEGIN CATCH END CATCH
 
 GO
 
-CREATE INDEX [IX_DataSets_TableName] ON [dbo].[DataSets] ([tableName])
+BEGIN TRY
+    CREATE INDEX [IX_DataSets_TableName] ON [dbo].[DataSets] ([tableName])
+END TRY
+BEGIN CATCH END CATCH
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
@@ -20,15 +26,17 @@ GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
-CREATE TABLE [dbo].[DataSets_Relationships]
-(
-	[parentId] INT NOT NULL, 
-    [childId] INT NOT NULL, 
-    [parentList] NVARCHAR(32) NOT NULL, 
-    [childColumn] NVARCHAR(32) NOT NULL
-    PRIMARY KEY ([parentId], [childId])
-)
-
+BEGIN TRY
+    CREATE TABLE [dbo].[DataSets_Relationships]
+    (
+	    [parentId] INT NOT NULL, 
+        [childId] INT NOT NULL, 
+        [parentList] NVARCHAR(32) NOT NULL, 
+        [childColumn] NVARCHAR(32) NOT NULL
+        PRIMARY KEY ([parentId], [childId])
+    )
+END TRY
+BEGIN CATCH END CATCH
 GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
@@ -36,12 +44,14 @@ GO
 GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
-
-CREATE SEQUENCE [dbo].[SequenceDataSets]
-    AS BIGINT
-    START WITH 1
-    INCREMENT BY 1
-    NO CACHE;
+BEGIN TRY
+	CREATE SEQUENCE [dbo].[SequenceDataSets]
+		AS BIGINT
+		START WITH 1
+		INCREMENT BY 1
+		NO CACHE;
+END TRY
+BEGIN CATCH END CATCH
 
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
