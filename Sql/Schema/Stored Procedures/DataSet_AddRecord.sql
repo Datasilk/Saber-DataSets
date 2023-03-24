@@ -47,14 +47,15 @@ SET NOCOUNT ON
 	--build SQL string from XML fields
 	DECLARE @newId nvarchar(MAX) ='DECLARE @newId int = ' + 
 		(CASE WHEN @recordId > 0 THEN CONVERT(nvarchar(16), @recordId) 
-		ELSE '0; SET @newId = NEXT VALUE FOR Sequence_DataSet_' + @tableName END) + ';'
+		ELSE '0; SET @newId = NEXT VALUE FOR [Sequence_DataSet_' + @tableName END) + '];'
 
-	DECLARE @sql nvarchar(MAX) = @newId + 'INSERT INTO DataSet_' + @tableName + ' (Id, lang, userId, datecreated, datemodified, ',
+	DECLARE @sql nvarchar(MAX) = @newId + 'INSERT INTO [DataSet_' + @tableName + '] (Id, lang, userId, datecreated, datemodified, ',
 	@values nvarchar(MAX) = 'VALUES (@newId, ''' + @lang + ''', ' + 
 		(CASE WHEN @userId IS NULL THEN 'NULL' ELSE CONVERT(nvarchar(16), @userId) END) +
 		', GETUTCDATE(), GETUTCDATE(), ',
 	@name nvarchar(64), @value nvarchar(MAX), 
-	@cursor CURSOR, @datatype varchar(16)
+	@cursor CURSOR, @datatype varchar(16),
+	@cols int = 0
 
 	SET @cursor = CURSOR FOR
 	SELECT [name], [value] FROM @fieldlist
@@ -65,6 +66,10 @@ SET NOCOUNT ON
 		SET @datatype = ''
 		SELECT @datatype = datatype FROM #cols WHERE col=@name
 		IF @datatype != '' BEGIN
+			IF @cols > 0 BEGIN
+				SET @sql += ', '
+				SET @values += ', '
+			END
 			IF @datatype = 'varchar' OR @datatype = 'nvarchar' OR @datatype = 'datetime2' BEGIN
 				SET @values += '''' + REPLACE(@value, '''', '''''') + ''''
 			END ELSE BEGIN
@@ -72,14 +77,9 @@ SET NOCOUNT ON
 			END 
 			SET @sql += '[' + @name + ']'
 		END
-
+		SET @cols += 1
 		FETCH NEXT FROM @cursor INTO @name, @value
-		IF @@FETCH_STATUS = 0 BEGIN
-			IF @datatype != '' BEGIN
-				SET @sql += ', '
-				SET @values += ', '
-			END
-		END ELSE BEGIN
+		IF @@FETCH_STATUS <> 0 BEGIN
 			SET @sql += ') '
 			SET @values += ')'
 		END

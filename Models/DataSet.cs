@@ -37,8 +37,10 @@ namespace Query.Models.DataSets
         public string DefaultValue { get; set; }
         [XmlAttribute("dataset")]
         public string Dataset { get; set; }
-        [XmlAttribute("listname")]
-        public string ListName { get; set; }
+        [XmlAttribute("columnname")]
+        public string ColumnName { get; set; }
+        [XmlAttribute("listtype")]
+        public string ListType { get; set; }
     }
 
     public class ColumnName

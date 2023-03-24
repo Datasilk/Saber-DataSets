@@ -41,7 +41,8 @@ S.editor.datasets = {
                         MaxLength: $(a).find('.column-maxlength').val() || '0',
                         DefaultValue: $(a).find('.column-default').val() || '',
                         Dataset: $(a).find('.column-dataset').val() || '',
-                        ListName: $(a).find('.column-listname').val() || ''
+                        ColumnName: $(a).find('.column-colname').val() || '',
+                        ListType: $(a).find('.column-listtype').val() || '',
                     };
                 })
             };
@@ -69,7 +70,7 @@ S.editor.datasets = {
                     S.popup.hide();
                     S.popup.show('Configure Data Set "' + name + '"', response, { className: 'dataset-columns' });
                     //add event listeners
-                    S.editor.datasets.columns.initForm();
+                    S.editor.datasets.columns.initForm(partial);
                     $('.dataset-columns .save-columns').on('click', (e2) => {
                         //create dataset
                         e2.preventDefault();
@@ -85,13 +86,15 @@ S.editor.datasets = {
             );
         },
 
-        initForm: function () {
+        initForm: function (partial) {
             $('.popup .column-datatype').on('input', (e) => {
                 var target = $(e.target);
                 var parent = target.parents('.dataset-column').first();
                 if (target.val() == 'relationship') {
                     parent.find('.column-details').hide();
                     parent.find('.column-relationship').show();
+                } else if (target.val() == 'relationship-id') {
+                    parent.find('.column-details').hide();
                 } else {
                     parent.find('.column-details').show();
                     parent.find('.column-relationship').hide();
@@ -102,14 +105,24 @@ S.editor.datasets = {
                 var target = $(e.target);
                 var parent = target.parents('.dataset-column').first();
                 var data = { datasetId: target.val() };
-                S.ajax.post('DataSets/ListComponents', data, (response) => {
+                S.ajax.post('DataSets/RelationalColumns', data, (response) => {
                     var list = JSON.parse(response);
                     var options = '';
                     for (var x = 0; x < list.length; x++) {
                         var item = list[x];
                         options += '<option value="' + item + '">' + item + '</option>';
                     }
-                    parent.find('.column-listname').html(options);
+                    var listtype = parent.find('.column-listtype');
+                    var colname = parent.find('.column-colname');
+                    colname.html(options);
+                    listtype.on('input', () => {
+                        if (listtype.val() == '2') {
+                            parent.find('.related-column').show();
+                        } else {
+                            parent.find('.related-column').hide();
+                        }
+                    })
+
                 });
             });
         },
@@ -122,7 +135,7 @@ S.editor.datasets = {
                     //display popup with list of dataset columns
                     S.popup.show('Update Data Set "' + name + '"', response, { className: 'dataset-columns' });
                     //add event listeners
-                    S.editor.datasets.columns.initForm();
+                    S.editor.datasets.columns.initForm(partial);
                     $('.dataset-columns .save-columns').on('click', (e) => {
                         //create dataset
                         e.preventDefault();

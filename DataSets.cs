@@ -122,7 +122,7 @@ namespace Saber.Vendors.DataSets
                 //check if we should skip element
                 if (elem.Name == "" || elem.Name.Substring(0, 1) == "/" ||
                     (excludeColumns != null && excludeColumns.Any(a => elem.Name.IndexOf(a) == 0)) ||
-                    Core.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0 && elem.Name.IndexOf("list-") != 0) ||
+                    Core.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0 && elem.Name.IndexOf("list") != 0) ||
                     fieldElementInfo.Any(a => a.Name == elem.Name)) { continue; }
                 
                 //render column
@@ -163,7 +163,11 @@ namespace Saber.Vendors.DataSets
 
             foreach (var elem in view.Elements.Where(a => !a.isBlock && a.Name.StartsWith("list")))
             {
-                //TODO: get all views from list components and include them in the form
+                //get all views from list components and include them in the form
+                //TODO: use View.GetPath instead of GetPath and then delete private GetPath method below
+                cols += 1;
+                //var partialPath = GetPath(elem.Vars["path"]);
+                //var listView = new View(partialPath);
             }
 
             if (cols == 0)
@@ -173,10 +177,23 @@ namespace Saber.Vendors.DataSets
             return html.ToString();
         }
 
+        //private string GetPath(string path)
+        //{
+        //    if (path[0] == '/') { path = path.Substring(1); }
+        //
+        //    //replace pointer paths with relative paths
+        //    var pointer = ViewPartialPointers.Paths.Where(a => path.IndexOf(a.Key) == 0).Select(p => new { p.Key, p.Value }).FirstOrDefault();
+        //    if (pointer != null)
+        //    {
+        //        path = path.Replace(pointer.Key, pointer.Value);
+        //    }
+        //    return '/' + path;
+        //}
+
         public string Create(string name, string partial, string description, List<Query.Models.DataSets.Column> columns, bool isprivate = false)
         {
             if (IsPublicApiRequest || !CheckSecurity("create-datasets")) { return AccessDenied(); }
-            if(columns == null || columns.Count <= 0 || columns[0].Name == null || columns[0].Name == "") { return Error("No columns were defined"); }
+            //if(columns == null || columns.Count <= 0 || columns[0].Name == null || columns[0].Name == "") { return Error("No columns were defined"); }
             try
             {
                 var key = name.Replace(" ", "_");
@@ -353,26 +370,26 @@ namespace Saber.Vendors.DataSets
             }
         }
 
-        public string ListComponents(int datasetId)
+        public string RelationalColumns(int datasetId)
         {
             if (IsPublicApiRequest || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             try
             {
                 var dataset = Query.DataSets.GetInfo(datasetId);
                 var view = new View("/Content/" + dataset.partialview);
-                var lists = new List<string>();
-                foreach(var elem in view.Elements)
+                var vars = new List<string>();
+                foreach (var elem in view.Elements)
                 {
-                    if(elem.Name == "list" || elem.Name.IndexOf("list-") == 0)
-                    {
-                        lists.Add(elem.Name);
-                    }
+                    if (elem.Name == "" || elem.Name.Substring(0, 1) == "/" || elem.isBlock == true ||
+                    Core.Vendors.HtmlComponentKeys.Any(a => elem.Name.IndexOf(a) == 0 && elem.Name.IndexOf("list-") != 0)
+                    ) { continue; }
+                    vars.Add(elem.Name);
                 }
-                return JsonResponse(lists);
+                return JsonResponse(vars);
             }
             catch (Exception)
             {
-                return Error("Could not retrieve list components for data set ID " + datasetId);
+                return Error("Could not retrieve list components");
             }
         }
         #endregion
@@ -475,23 +492,15 @@ namespace Saber.Vendors.DataSets
             var datasetId = Parameters.ContainsKey("datasetId") ? int.Parse(Parameters["datasetId"]) : 0;
             var recordId = Parameters.ContainsKey("recordId") ? int.Parse(Parameters["recordId"]) : 0;
             var relationships = Query.DataSets.Relationships.GetList(datasetId);
-            var parents = Query.DataSets.Relationships.GetList(parentId);
             var columns = Query.DataSets.GetColumns(datasetId);
             var lists = view.Elements.Where(a => a.Name == "list" || a.Name.IndexOf("list-") == 0);
             var fieldTypes = new Dictionary<string, ContentFields.FieldType>();
             var hideElements = new List<string>();
             foreach(var elem in view.Elements)
             {
-                var name = elem.Name.Replace("-", "_");
-                var i = relationships.FindIndex(a => a.childColumn == name);
+                var i = relationships.FindIndex(a => a.childId == datasetId && a.childColumn == elem.Name);
                 if (i >= 0)
                 {
-                    hideElements.Add(elem.Name);
-                }
-                i = parents.FindIndex(a => a.childColumn == name);
-                if (i >= 0)
-                {
-                    parents[i].childKey = elem.Name;
                     hideElements.Add(elem.Name);
                 }
             }
@@ -505,7 +514,7 @@ namespace Saber.Vendors.DataSets
                     field = fields[columnName];
                     parts = field.Split("|!|").ToList();
                 }
-                var relationship = relationships.Where(a => a.parentList == list.Name).FirstOrDefault();
+                var relationship = relationships.Where(a => a.parentId == datasetId && a.parentList == list.Name).FirstOrDefault();
                 if(relationship != null && field.IndexOf("data-src=") < 0)
                 {
                     parts.Add("data-src=dataset-" + relationship.childId);
@@ -514,20 +523,27 @@ namespace Saber.Vendors.DataSets
                 {
                     parts.Add("locked");
                 }
-                if (!parts.Contains("add") && data != null && data.Keys.Count > 0)
+                if (relationship!= null && relationship.listType == 0 && !parts.Contains("single"))
+                {
+                    parts.Add("single");
+                }
+                if (!parts.Contains("add") && data != null && data.Count > 0 && relationship.listType == 2)
                 {
                     parts.Add("add");
                     parts.Add("filter=[]");//include filter groups array
                     parts.Add("sort=[]");//include sort array
                 }
-                else if(data == null || data.Keys.Count == 0)
+                else if((data == null || data.Count == 0) && relationship.listType != 1)
                 {
                     hideElements.Add(list.Name);
                 }
                 fields[list.Name] = string.Join("|!|", parts.Where(a => !string.IsNullOrEmpty(a)));
 
                 //add arguments to mustache code
-                list.Vars.Add("renderapi", "DataSets/RenderContentFields?parentId=" + datasetId + "&datasetId=" + relationship.childId + "&recordId=" + recordId);
+                if (!list.Vars.ContainsKey("renderapi"))
+                {
+                    list.Vars.Add("renderapi", "DataSets/RenderContentFields?parentId=" + datasetId + "&datasetId=" + relationship.childId + "&recordId=" + recordId);
+                }
             }
 
             //hide all unusable lists
@@ -600,10 +616,11 @@ namespace Saber.Vendors.DataSets
             var html = new StringBuilder();
             if(parentId > 0)
             {
-                foreach (var item in parents)
+                var item = relationships.Where(a => a.parentId == parentId && a.childId == datasetId).FirstOrDefault();
+                if(item != null)
                 {
-                    html.Append("<input type=\"hidden\" id=\"" + Saber.Core.ContentFields.GetFieldId(item.childKey) + "\" class=\"input-field\" value=\"" + recordId + "\"/>\n");
-                }
+                    html.Append("<input type=\"hidden\" id=\"" + Saber.Core.ContentFields.GetFieldId(item.childColumn) + "\" class=\"input-field\" value=\"" + recordId + "\"/>\n");
+                }                
             }
 
             return Response(result + html.ToString());

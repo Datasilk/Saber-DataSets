@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Text;
 using Microsoft.Data.SqlClient;
 using Microsoft.SqlServer.Management.Common;
 
@@ -50,10 +47,10 @@ namespace Query
             if(dataset == null) { return null; }
 
             var sql = new StringBuilder(@"
-                SELECT u.name AS username, u.email AS useremail, d.*
-                FROM DataSet_" + dataset.tableName + @" d
-		        LEFT JOIN Users u ON u.userId=d.userId
-                WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
+SELECT u.name AS username, u.email AS useremail, d.*
+FROM [DataSet_" + dataset.tableName + @"] d
+LEFT JOIN Users u ON u.userId=d.userId
+WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
 
             if(filters != null && filters.Count > 0)
             {
@@ -114,11 +111,11 @@ namespace Query
 
             //generate query for parent data set ///////////////////////////////////////////////////////////////////
             var sql = new StringBuilder(@"
-            SELECT u.name AS username, u.email AS useremail, d.*
-            INTO " + tmpTable + @"
-            FROM DataSet_" + dataset.tableName + @" d
-            LEFT JOIN Users u ON u.userId=d.userId
-            WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
+SELECT u.name AS username, u.email AS useremail, d.*
+INTO " + tmpTable + @"
+FROM [DataSet_" + dataset.tableName + @"] d
+LEFT JOIN Users u ON u.userId=d.userId
+WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
 
             var key = "dataset-" + datasetId.ToString();
             var keyId = datasetId.ToString();
@@ -165,13 +162,13 @@ namespace Query
                 if(dataset != null)
                 {
                     sql.Append(@"
-                    GO
+GO
 
-                    SELECT u.name AS username, u.email AS useremail, d.*
-                    FROM DataSet_" + dataset.tableName + @" d
-                    LEFT JOIN Users u ON u.userId=d.userId
-                    WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"' 
-                    AND d." + child.ChildColumn + @" IN (SELECT id FROM " + tmpTable + ")");
+SELECT u.name AS username, u.email AS useremail, d.*
+FROM [DataSet_" + dataset.tableName + @"] d
+LEFT JOIN Users u ON u.userId=d.userId
+WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"' 
+AND d." + child.ChildColumn + @" IN (SELECT id FROM " + tmpTable + ")");
 
                     key = "dataset-" + childId.ToString();
                     if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
@@ -261,10 +258,10 @@ namespace Query
             if (dataset == null) { return 0; }
 
             var sql = new StringBuilder(@"
-                SELECT COUNT(*)
-                FROM DataSet_" + dataset.tableName + @" d
-		        LEFT JOIN Users u ON u.userId=d.userId
-                WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
+SELECT COUNT(*)
+FROM [DataSet_" + dataset.tableName + @"] d
+LEFT JOIN Users u ON u.userId=d.userId
+WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
 
             if (filters != null && filters.Count > 0)
             {
@@ -295,11 +292,11 @@ namespace Query
 
             //generate query for parent data set ///////////////////////////////////////////////////////////////////
             var sql = new StringBuilder(@"
-            SELECT COUNT(*)
-            INTO " + tmpTable + @"
-            FROM DataSet_" + dataset.tableName + @" d
-            LEFT JOIN Users u ON u.userId=d.userId
-            WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
+SELECT COUNT(*)
+INTO " + tmpTable + @"
+FROM [DataSet_" + dataset.tableName + @"] d
+LEFT JOIN Users u ON u.userId=d.userId
+WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
 
             var key = "dataset-" + datasetId.ToString();
             var keyId = datasetId.ToString();
@@ -325,13 +322,13 @@ namespace Query
                 if (dataset != null)
                 {
                     sql.Append(@"
-                    GO
+GO
 
-                    SELECT COUNT(*)
-                    FROM DataSet_" + dataset.tableName + @" d
-                    LEFT JOIN Users u ON u.userId=d.userId
-                    WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"' 
-                    AND d." + child.ChildColumn + @" IN (SELECT id FROM " + tmpTable + ")");
+SELECT COUNT(*)
+FROM [DataSet_" + dataset.tableName + @"] d
+LEFT JOIN Users u ON u.userId=d.userId
+WHERE " + (userId > 0 ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"' 
+AND d." + child.ChildColumn + @" IN (SELECT id FROM " + tmpTable + ")");
 
                     key = "dataset-" + childId.ToString();
                     if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)

@@ -11,4 +11,4 @@ AS
 	FROM Datasets_Relationships r
 	CROSS APPLY (SELECT * FROM Datasets WHERE datasetId=r.parentId) AS parent
 	CROSS APPLY (SELECT * FROM Datasets WHERE datasetId=r.childId) AS child
-	WHERE r.parentId=@parentId ORDER BY childTableName ASC
+	WHERE r.parentId=@parentId OR r.childId=@parentId ORDER BY childTableName ASC

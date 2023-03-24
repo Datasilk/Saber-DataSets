@@ -32,7 +32,8 @@ BEGIN TRY
 	    [parentId] INT NOT NULL, 
         [childId] INT NOT NULL, 
         [parentList] NVARCHAR(32) NOT NULL, 
-        [childColumn] NVARCHAR(32) NOT NULL
+        [childColumn] NVARCHAR(32) NOT NULL DEFAULT '', 
+        [listtype] INT NOT NULL DEFAULT 1,
         PRIMARY KEY ([parentId], [childId])
     )
 END TRY
@@ -44,12 +45,13 @@ GO
 GO
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
+
 BEGIN TRY
-	CREATE SEQUENCE [dbo].[SequenceDataSets]
-		AS BIGINT
-		START WITH 1
-		INCREMENT BY 1
-		NO CACHE;
+    CREATE SEQUENCE [dbo].[SequenceDataSets]
+        AS BIGINT
+        START WITH 1
+        INCREMENT BY 1
+        NO CACHE;
 END TRY
 BEGIN CATCH END CATCH
 
@@ -143,7 +145,7 @@ AS
 	FROM Datasets_Relationships r
 	CROSS APPLY (SELECT * FROM Datasets WHERE datasetId=r.parentId) AS parent
 	CROSS APPLY (SELECT * FROM Datasets WHERE datasetId=r.childId) AS child
-	WHERE r.parentId=@parentId ORDER BY childTableName ASC
+	WHERE r.parentId=@parentId OR r.childId=@parentId ORDER BY childTableName ASC
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
 GO
@@ -155,15 +157,16 @@ GO
 CREATE PROCEDURE [dbo].[DataSets_Relationship_Create]
 	@parentId INT,
 	@childId INT,
+	@childColumn nvarchar(32),
 	@parentList nvarchar(32),
-	@childColumn nvarchar(32)
+	@listtype INT
 AS
 	IF EXISTS(SELECT * FROM Datasets_Relationships WHERE parentId=@parentId AND childId=@childId) BEGIN
 		DELETE FROM Datasets_Relationships WHERE parentId=@parentId AND childId=@childId
 	END
 
-	INSERT INTO Datasets_Relationships (parentId, childId, parentList, childColumn)
-	VALUES (@parentId, @childId, @parentList, @childColumn)
+	INSERT INTO Datasets_Relationships (parentId, childId, parentList, childcolumn, listtype)
+	VALUES (@parentId, @childId, @parentList, @childColumn, @listtype)
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
 GO
@@ -219,14 +222,15 @@ SET NOCOUNT ON
 	--build SQL string from XML fields
 	DECLARE @newId nvarchar(MAX) ='DECLARE @newId int = ' + 
 		(CASE WHEN @recordId > 0 THEN CONVERT(nvarchar(16), @recordId) 
-		ELSE '0; SET @newId = NEXT VALUE FOR Sequence_DataSet_' + @tableName END) + ';'
+		ELSE '0; SET @newId = NEXT VALUE FOR [Sequence_DataSet_' + @tableName END) + '];'
 
-	DECLARE @sql nvarchar(MAX) = @newId + 'INSERT INTO DataSet_' + @tableName + ' (Id, lang, userId, datecreated, datemodified, ',
+	DECLARE @sql nvarchar(MAX) = @newId + 'INSERT INTO [DataSet_' + @tableName + '] (Id, lang, userId, datecreated, datemodified, ',
 	@values nvarchar(MAX) = 'VALUES (@newId, ''' + @lang + ''', ' + 
 		(CASE WHEN @userId IS NULL THEN 'NULL' ELSE CONVERT(nvarchar(16), @userId) END) +
 		', GETUTCDATE(), GETUTCDATE(), ',
 	@name nvarchar(64), @value nvarchar(MAX), 
-	@cursor CURSOR, @datatype varchar(16)
+	@cursor CURSOR, @datatype varchar(16),
+	@cols int = 0
 
 	SET @cursor = CURSOR FOR
 	SELECT [name], [value] FROM @fieldlist
@@ -237,6 +241,10 @@ SET NOCOUNT ON
 		SET @datatype = ''
 		SELECT @datatype = datatype FROM #cols WHERE col=@name
 		IF @datatype != '' BEGIN
+			IF @cols > 0 BEGIN
+				SET @sql += ', '
+				SET @values += ', '
+			END
 			IF @datatype = 'varchar' OR @datatype = 'nvarchar' OR @datatype = 'datetime2' BEGIN
 				SET @values += '''' + REPLACE(@value, '''', '''''') + ''''
 			END ELSE BEGIN
@@ -244,14 +252,9 @@ SET NOCOUNT ON
 			END 
 			SET @sql += '[' + @name + ']'
 		END
-
+		SET @cols += 1
 		FETCH NEXT FROM @cursor INTO @name, @value
-		IF @@FETCH_STATUS = 0 BEGIN
-			IF @datatype != '' BEGIN
-				SET @sql += ', '
-				SET @values += ', '
-			END
-		END ELSE BEGIN
+		IF @@FETCH_STATUS <> 0 BEGIN
 			SET @sql += ') '
 			SET @values += ')'
 		END
@@ -285,128 +288,133 @@ CREATE PROCEDURE [dbo].[DataSet_Create]
 			<column name="description" datatype="text" maxlength="max"></column>
 			<column name="datecreated" datatype="datetime" default="now"></column>
 			<column name="list-team" datatype="list" default=""></column>
+			<column name="list-categories" datatype="relationship" dataset="categories" columnname="productid" listtype="0"></column>
 		</columns>
 	*/
 AS
-	IF NOT EXISTS(SELECT * FROM DataSets WHERE [label]=@label) BEGIN
-		DECLARE @tablename nvarchar(64) = REPLACE(@label, ' ', '_');
+	IF EXISTS(SELECT * FROM DataSets WHERE [label]=@label) RETURN
 
-		--first, create a new sequence for the dataset
-		DECLARE @sql nvarchar(MAX) = 'CREATE SEQUENCE [dbo].[Sequence_DataSet_' + @tableName + '] AS BIGINT START WITH 1 INCREMENT BY 1 NO CACHE'
-		IF NOT EXISTS(SELECT * FROM sys.objects WHERE object_id = OBJECT_ID('[dbo].[Sequence_DataSet_' + @tableName + ']') AND [type] = 'SO') BEGIN
-			EXECUTE sp_executesql @sql
-		END
-		
+	DECLARE @tablename nvarchar(64) = REPLACE(@label, ' ', '_');
 
-
-		--create a new table for this dataset
-		SET @sql = 'CREATE TABLE [dbo].[DataSet_' + @tablename + '] (Id INT, lang NVARCHAR(16), userId int NOT NULL DEFAULT 1, ' + 
-					'datecreated DATETIME2(7) NOT NULL DEFAULT GETUTCDATE(), datemodified DATETIME2(2) NOT NULL DEFAULT GETUTCDATE(), '
-		DECLARE @sqlVars nvarchar(MAX) = ''
-		DECLARE @sqlVals nvarchar(MAX) = ''
-		DECLARE @indexes nvarchar(MAX) = 'CREATE INDEX [IX_DataSet_' + @tableName + '_DateCreated] ON [dbo].[DataSet_' + @tableName + '] ([datecreated])' +
-					'CREATE INDEX [IX_DataSet_' + @tableName + '_DateModified] ON [dbo].[DataSet_' + @tableName + '] ([datemodified])'
-		DECLARE @relationships nvarchar(MAX) = ''
-
-		DECLARE @hdoc INT
-		DECLARE @cols TABLE (
-			[name] nvarchar(32),
-			datatype varchar(32),
-			[maxlength] varchar(32),
-			[default] varchar(32),
-			[dataset] varchar(32),
-			[listname] varchar(32)
-		)
-		EXEC sp_xml_preparedocument @hdoc OUTPUT, @columns;
-
-		/* create new addressbook entries based on email list */
-		INSERT INTO @cols
-		SELECT x.[name], x.datatype, x.[maxlength], x.[default], x.[dataset], x.[listname]
-		FROM (
-			SELECT * FROM OPENXML( @hdoc, '//column', 2)
-			WITH (
-				[name] nvarchar(32) '@name',
-				datatype nvarchar(32) '@datatype',
-				[maxlength] nvarchar(32) '@maxlength',
-				[default] nvarchar(32) '@default',
-				[dataset] nvarchar(32) '@dataset',
-				[listname] nvarchar(32) '@listname'
-			)
-		) AS x
-	
-		DECLARE @cursor CURSOR 
-		DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), 
-			@default nvarchar(32), @dataset nvarchar(32), @listname nvarchar(32),
-			@newname nvarchar(32)
-		SET @cursor = CURSOR FOR
-		SELECT [name], [datatype],[maxlength], [default], [dataset], [listname] FROM @cols
-		OPEN @cursor
-		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
-		WHILE @@FETCH_STATUS = 0 BEGIN
-			SET @maxlength = ISNULL(@maxlength, '64')
-			IF @maxlength = '0' SET @maxlength = 'MAX'
-			IF @datatype = 'text' BEGIN
-				SET @sql = @sql + '[' + @name + '] NVARCHAR(' + @maxlength + ') NOT NULL DEFAULT '''''
-				IF @maxlength != 'max' BEGIN
-					SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
-				END
-			END
-			IF @datatype = 'image' BEGIN
-				SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
-			END
-			IF @datatype = 'number' BEGIN
-				SET @sql = @sql + '[' + @name + '] INT NULL ' + CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default END
-				SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
-			END
-			IF @datatype = 'decimal' BEGIN
-				SET @sql = @sql + '[' + @name + '] DECIMAL(18,0) NULL ' + CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default END
-				SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
-			END
-			IF @datatype = 'bit' BEGIN
-				SET @sql = @sql + '[' + @name + '] BIT NOT NULL DEFAULT ' + CASE WHEN @default = '1' THEN '1' ELSE '0' END
-			END
-			IF @datatype = 'datetime' BEGIN
-				SET @sql = @sql + '[' + @name + '] DATETIME2(7) ' + CASE WHEN @default = 'now' THEN 'NOT NULL DEFAULT GETUTCDATE()' ELSE 'NULL' END
-				SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
-			END
-			IF @datatype = 'relationship' BEGIN
-				SET @sql = @sql + '[' + @name + '] INT NOT NULL DEFAULT 0'
-				SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
-				SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=' + @dataset + ', @childId=#datasetId#, @parentList=''' + @listName + ''', @childColumn=''' + @name + '''' + CHAR(13) 
-			END
-			IF @datatype = 'list' BEGIN
-				SET @newname = REPLACE(@name, '-', '_')
-				SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL'
-			END
-			FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
-			SET @sql = @sql + ', '
-		END
-		CLOSE @cursor
-		DEALLOCATE @cursor
-
-		SET @sql = @sql + 'PRIMARY KEY (Id, lang))'
-		PRINT @sql
-		PRINT @indexes
-
-		--execute generated SQL code
+	--first, create a new sequence for the dataset
+	DECLARE @sql nvarchar(MAX) = 'CREATE SEQUENCE [dbo].[Sequence_DataSet_' + @tableName + '] AS BIGINT START WITH 1 INCREMENT BY 1 NO CACHE'
+	IF NOT EXISTS(SELECT * FROM sys.objects WHERE object_id = OBJECT_ID('[dbo].[Sequence_DataSet_' + @tableName + ']') AND [type] = 'SO') BEGIN
 		EXECUTE sp_executesql @sql
-		EXECUTE sp_executesql @indexes
-
-		--finally, record dataset info
-		INSERT INTO DataSets (userId, [label], tableName, partialview, [description], datecreated, deleted)
-		VALUES (@userId, @label, @tablename, @partialview, @description, GETUTCDATE(), 0)
-
-		DECLARE @datasetId int
-		SELECT @datasetId = datasetId FROM DataSets WHERE tableName=@tablename
-		
-		IF @relationships != '' BEGIN
-			DECLARE @finalsql nvarchar(MAX) = REPLACE(@relationships, '#datasetId#', CONVERT(nvarchar(MAX), @datasetId))
-			EXECUTE sp_executesql @finalsql
-		END
-
-		SELECT @datasetId
-
 	END
+		
+
+
+	--create a new table for this dataset
+	SET @sql = 'CREATE TABLE [dbo].[DataSet_' + @tablename + '] (Id INT, lang NVARCHAR(16), userId int NOT NULL DEFAULT 1, ' + 
+				'datecreated DATETIME2(7) NOT NULL DEFAULT GETUTCDATE(), datemodified DATETIME2(2) NOT NULL DEFAULT GETUTCDATE(), '
+	DECLARE @sqlVars nvarchar(MAX) = ''
+	DECLARE @sqlVals nvarchar(MAX) = ''
+	DECLARE @indexes nvarchar(MAX) = 'CREATE INDEX [IX_DataSet_' + @tableName + '_DateCreated] ON [dbo].[DataSet_' + @tableName + '] ([datecreated])' +
+				'CREATE INDEX [IX_DataSet_' + @tableName + '_DateModified] ON [dbo].[DataSet_' + @tableName + '] ([datemodified])'
+	DECLARE @relationships nvarchar(MAX) = ''
+
+	DECLARE @hdoc INT
+	DECLARE @cols TABLE (
+		[name] nvarchar(32),
+		datatype varchar(32),
+		[maxlength] varchar(32),
+		[default] varchar(32),
+		[dataset] varchar(32),
+		[columnname] varchar(32),
+		[listtype] varchar(32) -- 0 = filtered list, 1 = single selection
+	)
+	EXEC sp_xml_preparedocument @hdoc OUTPUT, @columns;
+
+	INSERT INTO @cols
+	SELECT x.[name], x.datatype, x.[maxlength], x.[default], x.[dataset], x.[columnname], x.[listtype]
+	FROM (
+		SELECT * FROM OPENXML( @hdoc, '//column', 2)
+		WITH (
+			[name] nvarchar(32) '@name',
+			datatype nvarchar(32) '@datatype',
+			[maxlength] nvarchar(32) '@maxlength',
+			[default] nvarchar(32) '@default',
+			[dataset] nvarchar(32) '@dataset',
+			[columnname] nvarchar(32) '@columnname',
+			[listtype] nvarchar(32) '@listtype'
+		)
+	) AS x
+	
+	DECLARE @cursor CURSOR 
+	DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), 
+		@default nvarchar(32), @dataset nvarchar(32), @columnname nvarchar(32), @listtype nvarchar(32),
+		@newname nvarchar(32)
+	SET @cursor = CURSOR FOR
+	SELECT [name], [datatype],[maxlength], [default], [dataset], [columnname], [listtype] FROM @cols
+	OPEN @cursor
+	FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @columnname, @listtype
+	WHILE @@FETCH_STATUS = 0 BEGIN
+		SET @maxlength = ISNULL(@maxlength, '64')
+		IF @maxlength = '0' SET @maxlength = 'MAX'
+		IF @datatype = 'text' BEGIN
+			SET @sql = @sql + '[' + @name + '] NVARCHAR(' + @maxlength + ') NOT NULL DEFAULT '''''
+			IF @maxlength != 'max' BEGIN
+				SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
+			END
+		END
+		IF @datatype = 'image' BEGIN
+			SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
+		END
+		IF @datatype = 'number' BEGIN
+			SET @sql = @sql + '[' + @name + '] INT NULL ' + CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default END
+			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
+		END
+		IF @datatype = 'decimal' BEGIN
+			SET @sql = @sql + '[' + @name + '] DECIMAL(18,0) NULL ' + CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default END
+			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
+		END
+		IF @datatype = 'bit' BEGIN
+			SET @sql = @sql + '[' + @name + '] BIT NOT NULL DEFAULT ' + CASE WHEN @default = '1' THEN '1' ELSE '0' END
+		END
+		IF @datatype = 'datetime' BEGIN
+			SET @sql = @sql + '[' + @name + '] DATETIME2(7) ' + CASE WHEN @default = 'now' THEN 'NOT NULL DEFAULT GETUTCDATE()' ELSE 'NULL' END
+			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
+		END
+		IF @datatype = 'relationship' BEGIN
+			SET @newname = REPLACE(@name, '-', '_')
+			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
+			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=#datasetId#, @childId=' + @dataset + ', @parentList=''' + @name + ''', @childColumn=''' + @columnname + ''', @listtype=' + @listtype + CHAR(13) 
+		END
+		IF @datatype = 'relationship-id' BEGIN
+			SET @sql = @sql + '[' + @name + '] INT NOT NULL DEFAULT 0'
+			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
+		END
+		IF @datatype = 'list' BEGIN
+			SET @newname = REPLACE(@name, '-', '_')
+			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
+		END
+		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @columnname, @listtype
+		SET @sql = @sql + ', '
+	END
+	CLOSE @cursor
+	DEALLOCATE @cursor
+
+	SET @sql = @sql + 'PRIMARY KEY (Id, lang))'
+	PRINT @sql
+	PRINT @indexes
+
+	--execute generated SQL code
+	EXECUTE sp_executesql @sql
+	EXECUTE sp_executesql @indexes
+
+	--finally, record dataset info
+	INSERT INTO DataSets (userId, [label], tableName, partialview, [description], datecreated, deleted)
+	VALUES (@userId, @label, @tablename, @partialview, @description, GETUTCDATE(), 0)
+
+	DECLARE @datasetId int
+	SELECT @datasetId = datasetId FROM DataSets WHERE tableName=@tablename
+		
+	IF @relationships != '' BEGIN
+		DECLARE @finalsql nvarchar(MAX) = REPLACE(@relationships, '#datasetId#', CONVERT(nvarchar(MAX), @datasetId))
+		EXECUTE sp_executesql @finalsql
+	END
+
+	SELECT @datasetId
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 
@@ -421,9 +429,9 @@ CREATE PROCEDURE [dbo].[DataSet_Delete]
 AS
 	DECLARE @tableName nvarchar(64)
 	SELECT @tableName=tableName FROM DataSets WHERE datasetId=@datasetId
-	DECLARE @sql nvarchar(MAX) = 'DROP TABLE DataSet_' + @tableName
+	DECLARE @sql nvarchar(MAX) = 'DROP TABLE [DataSet_' + @tableName + ']'
 	EXEC sp_executesql @sql
-	SET @sql = 'DROP SEQUENCE Sequence_DataSet_' + @tableName
+	SET @sql = 'DROP SEQUENCE [Sequence_DataSet_' + @tableName + ']'
 	EXEC sp_executesql @sql
 	DELETE FROM DataSets WHERE datasetId=@datasetId
 	DELETE FROM DataSets_Relationships WHERE parentId=@datasetId OR childId=@datasetId
@@ -443,7 +451,7 @@ CREATE PROCEDURE [dbo].[DataSet_DeleteRecord]
 AS
 	DECLARE @tableName nvarchar(64)
 	SELECT @tableName=tableName FROM DataSets WHERE datasetId=@datasetId
-	DECLARE @sql nvarchar(MAX) = 'DELETE FROM DataSet_' + @tableName + ' WHERE Id=' + CONVERT(nvarchar(MAX), @recordId)
+	DECLARE @sql nvarchar(MAX) = 'DELETE FROM [DataSet_' + @tableName + '] WHERE Id=' + CONVERT(nvarchar(MAX), @recordId)
 	EXEC sp_executesql @sql
 
 	DECLARE @cursor CURSOR, @column nvarchar(32), @childId int
@@ -457,7 +465,7 @@ AS
 		SET @tableName = ''
 		SELECT @tableName = tableName FROM DataSets WHERE datasetId=@childId
 		IF @tableName != '' BEGIN
-			SET @sql = 'DELETE FROM DataSet_' + @tableName + ' WHERE ' + @column + '=' + CONVERT(nvarchar(MAX), @recordId)
+			SET @sql = 'DELETE FROM [DataSet_' + @tableName + '] WHERE ' + @column + '=' + CONVERT(nvarchar(MAX), @recordId)
 			PRINT @sql
 			EXEC sp_executesql @sql
 		END
@@ -551,13 +559,13 @@ AS
 		[maxlength] varchar(32),
 		[default] varchar(32),
 		[dataset] varchar(32),
-		[listname] varchar(32)
+		[columnname] varchar(32),
+		[listtype] varchar(32) -- 0 = filtered list, 1 = single selection
 	)
 	EXEC sp_xml_preparedocument @hdoc OUTPUT, @columns;
 
-	/* create new addressbook entries based on email list */
 	INSERT INTO @cols
-	SELECT x.[name], x.datatype, x.[maxlength], x.[default], x.[dataset], x.[listname]
+	SELECT x.[name], x.datatype, x.[maxlength], x.[default], x.[dataset], x.[columnname], x.[listtype]
 	FROM (
 		SELECT * FROM OPENXML( @hdoc, '//column', 2)
 		WITH (
@@ -566,18 +574,19 @@ AS
 			[maxlength] nvarchar(32) '@maxlength',
 			[default] nvarchar(32) '@default',
 			[dataset] nvarchar(32) '@dataset',
-			[listname] nvarchar(32) '@listname'
+			[columnname] nvarchar(32) '@columnname',
+			[listtype] nvarchar(32) '@listtype'
 		)
 	) AS x
 	
 	DECLARE @cursor CURSOR 
 	DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), 
-		@default nvarchar(32), @dataset nvarchar(32), @listname nvarchar(32),
+		@default nvarchar(32), @dataset nvarchar(32), @columnname nvarchar(32), @listtype nvarchar(32),
 		@newname nvarchar(32)
 	SET @cursor = CURSOR FOR
-	SELECT [name], [datatype],[maxlength], [default], [dataset], [listname] FROM @cols
+	SELECT [name], [datatype],[maxlength], [default], [dataset], [columnname], [listtype] FROM @cols
 	OPEN @cursor
-	FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
+	FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @columnname, @listtype
 	WHILE @@FETCH_STATUS = 0 BEGIN
 		SET @maxlength = ISNULL(@maxlength, '64')
 		IF @maxlength = '0' SET @maxlength = 'MAX'
@@ -606,16 +615,20 @@ AS
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'relationship' BEGIN
+			SET @newname = REPLACE(@name, '-', '_')
+			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
+			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=#datasetId#, @childId=' + @dataset + ', @parentList=''' + @name + ''', @childColumn=''' + @columnname + ''', @listtype=' + @listtype + CHAR(13) 
+		END
+		IF @datatype = 'relationship-id' BEGIN
 			SET @sql = @sql + '[' + @name + '] INT NOT NULL DEFAULT 0'
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
-			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=' + @dataset + ', @childId=' + CONVERT(nvarchar(MAX), @datasetId) + ', @parentList=''' + @listName + ''', @childColumn=''' + @name + '''' + CHAR(13) 
 		END
 		IF @datatype = 'list' BEGIN
 			SET @newname = REPLACE(@name, '-', '_')
-			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NULL'
+			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
 		END
-		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
-		IF @@FETCH_STATUS = 0 SET @sql = @sql + ', '
+		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @columnname, @listtype
+		SET @sql = @sql + ', '
 	END
 	CLOSE @cursor
 	DEALLOCATE @cursor
@@ -701,17 +714,16 @@ SET NOCOUNT ON
 	) AS x
 
 	--build SQL string from XML fields
-	DECLARE @sql nvarchar(MAX) = 'SELECT CASE WHEN EXISTS(SELECT * FROM DataSet_' + @tableName + ' WHERE Id=' + CONVERT(nvarchar(16), @recordId) + ' AND lang=''' + @lang + ''') THEN 1 ELSE 0 END AS [value]',
+	DECLARE @sql nvarchar(MAX) = 'SELECT CASE WHEN EXISTS(SELECT * FROM [DataSet_' + @tableName + '] WHERE Id=' + CONVERT(nvarchar(16), @recordId) + ' AND lang=''' + @lang + ''') THEN 1 ELSE 0 END AS [value]',
 	@name nvarchar(64), @value nvarchar(MAX), 
-	@cursor CURSOR, @datatype varchar(16)
-	PRINT @sql
+	@cursor CURSOR, @datatype varchar(16), @cols int = 0
 
 	--first, check if record already exists
 	DECLARE @exists TABLE (value bit)
 	INSERT INTO @exists EXEC sp_executesql @sql
 	IF EXISTS(SELECT * FROM @exists WHERE [value]=1) BEGIN
 		--record already exists
-		SET @sql = 'UPDATE DataSet_' + @tableName + ' SET '
+		SET @sql = 'UPDATE [DataSet_' + @tableName + '] SET '
 		SET @cursor = CURSOR FOR
 		SELECT [name], [value] FROM @fieldlist
 		OPEN @cursor
@@ -721,14 +733,15 @@ SET NOCOUNT ON
 			SET @datatype = ''
 			SELECT @datatype = datatype FROM #cols WHERE col=@name
 			IF @datatype != '' BEGIN
+				IF @cols > 0 SET @sql += ', '
 				IF @datatype = 'varchar' OR @datatype = 'nvarchar' OR @datatype = 'datetime2' BEGIN
 					SET @sql += '[' + @name + '] = ''' + REPLACE(@value, '''', '''''') + ''''
 				END ELSE BEGIN
 					SET @sql += '[' + @name + '] = ' + @value
 				END 
 			END
+			SET @cols += 1
 			FETCH NEXT FROM @cursor INTO @name, @value
-			IF @@FETCH_STATUS = 0 SET @sql += ', '
 		END
 		CLOSE @cursor
 		DEALLOCATE @cursor

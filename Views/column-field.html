@@ -13,8 +13,7 @@
                 <option value="number">Number</option>
                 <option value="decimal">Decimal</option>
                 <option value="datetime">Date/Time</option>
-                <option value="relationship">Relationship</option>
-                <option value="list">List</option>
+                <option value="relationship-id">Relationship</option>
             </select>
         </div>
         {{/datatype}}
@@ -26,8 +25,10 @@
         {{/datatype-bit}}
         {{datatype-list}}
         <div class="row text">
-            <span>List</span>
-            <input type="hidden" class="column-datatype" value="list" />
+            <select id="datatype_{{id}}" class="column-datatype">
+                <option value="relationship">Relationship</option>
+                <option value="list" selected>List</option>
+            </select>
         </div>
         {{/datatype-list}}
         {{datatype-image}}
@@ -38,7 +39,7 @@
                 <option value="number">Number</option>
                 <option value="decimal">Decimal</option>
                 <option value="datetime">Date/Time</option>
-                <option value="relationship">Relationship</option>
+                <option value="relationship-id">Relationship</option>
             </select>
         </div>
         {{/datatype-image}}
@@ -77,9 +78,19 @@
                 {{options-datasources}}
             </select>
         </div>
-        <div class="row field faded">List Component</div>
+        <div class="row field faded">List Type</div>
         <div class="row input">
-            <select id="listname_{{id}}" class="column-listname" title="List component contained within selected Data Set's Partial View"></select>
+            <select id="listtype_{{id}}" class="column-listtype" title="Type of List to use when creating new records">
+                <option value="0">Single Selection</option>
+                <option value="1" selected="selected">Filtered List</option>
+                <option value="2">Related List</option>
+            </select>
+        </div>
+        <div class="related-column" style="display:none;">
+            <div class="row field faded">Relationship Id</div>
+            <div class="row input">
+                <select id="colname_{{id}}" class="column-colname" title="Mustache variable contained within selected Data Set's Partial View that will be used to store the relationship ID"></select>
+            </div>
         </div>
     </div>
 </div>

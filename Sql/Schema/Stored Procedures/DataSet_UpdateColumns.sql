@@ -28,13 +28,13 @@ AS
 		[maxlength] varchar(32),
 		[default] varchar(32),
 		[dataset] varchar(32),
-		[listname] varchar(32)
+		[columnname] varchar(32),
+		[listtype] varchar(32) -- 0 = filtered list, 1 = single selection
 	)
 	EXEC sp_xml_preparedocument @hdoc OUTPUT, @columns;
 
-	/* create new addressbook entries based on email list */
 	INSERT INTO @cols
-	SELECT x.[name], x.datatype, x.[maxlength], x.[default], x.[dataset], x.[listname]
+	SELECT x.[name], x.datatype, x.[maxlength], x.[default], x.[dataset], x.[columnname], x.[listtype]
 	FROM (
 		SELECT * FROM OPENXML( @hdoc, '//column', 2)
 		WITH (
@@ -43,18 +43,19 @@ AS
 			[maxlength] nvarchar(32) '@maxlength',
 			[default] nvarchar(32) '@default',
 			[dataset] nvarchar(32) '@dataset',
-			[listname] nvarchar(32) '@listname'
+			[columnname] nvarchar(32) '@columnname',
+			[listtype] nvarchar(32) '@listtype'
 		)
 	) AS x
 	
 	DECLARE @cursor CURSOR 
 	DECLARE @name nvarchar(32), @datatype nvarchar(32), @maxlength nvarchar(32), 
-		@default nvarchar(32), @dataset nvarchar(32), @listname nvarchar(32),
+		@default nvarchar(32), @dataset nvarchar(32), @columnname nvarchar(32), @listtype nvarchar(32),
 		@newname nvarchar(32)
 	SET @cursor = CURSOR FOR
-	SELECT [name], [datatype],[maxlength], [default], [dataset], [listname] FROM @cols
+	SELECT [name], [datatype],[maxlength], [default], [dataset], [columnname], [listtype] FROM @cols
 	OPEN @cursor
-	FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
+	FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @columnname, @listtype
 	WHILE @@FETCH_STATUS = 0 BEGIN
 		SET @maxlength = ISNULL(@maxlength, '64')
 		IF @maxlength = '0' SET @maxlength = 'MAX'
@@ -83,16 +84,20 @@ AS
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'relationship' BEGIN
+			SET @newname = REPLACE(@name, '-', '_')
+			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
+			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=#datasetId#, @childId=' + @dataset + ', @parentList=''' + @name + ''', @childColumn=''' + @columnname + ''', @listtype=' + @listtype + CHAR(13) 
+		END
+		IF @datatype = 'relationship-id' BEGIN
 			SET @sql = @sql + '[' + @name + '] INT NOT NULL DEFAULT 0'
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
-			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=' + @dataset + ', @childId=' + CONVERT(nvarchar(MAX), @datasetId) + ', @parentList=''' + @listName + ''', @childColumn=''' + @name + '''' + CHAR(13) 
 		END
 		IF @datatype = 'list' BEGIN
 			SET @newname = REPLACE(@name, '-', '_')
-			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NULL'
+			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
 		END
-		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @listname
-		IF @@FETCH_STATUS = 0 SET @sql = @sql + ', '
+		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @columnname, @listtype
+		SET @sql = @sql + ', '
 	END
 	CLOSE @cursor
 	DEALLOCATE @cursor
