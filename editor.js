@@ -9,14 +9,15 @@ S.editor.datasets = {
     },
     add: {
         show: function () {
+            //display form to add new dataset
             S.ajax.post('Datasets/GetCreateForm', {}, (response) => {
                 S.popup.show('Create a new Data Set', response);
                 $('.popup form').on('submit', (e) => {
                     var name = $('#dataset_name').val();
                     var description = $('#dataset_description').val();
                     var partial = $('#dataset_partial').val();
-                    var isprivate = $('#dataset_private')[0].checked;
-                    S.editor.datasets.columns.load(e, name, description, partial, isprivate);
+                    var type = $('#dataset_type').val();
+                    S.editor.datasets.columns.load(e, name, description, partial, type);
                 });
 
                 //add event listener for partial view browse button
@@ -28,12 +29,13 @@ S.editor.datasets = {
                 });
             });
         },
-        finish: function (name, description, partial, isprivate) {
+        finish: function (name, description, partial, type) {
+            //finish adding new dataset
             var data = {
                 name: name,
                 partial: partial,
                 description: description,
-                isprivate: isprivate ? isprivate === true : false,
+                type: type,
                 columns: $('.popup .dataset-column').map((i, a) => {
                     return {
                         Name: $(a).find('.column-name').val(),
@@ -62,7 +64,7 @@ S.editor.datasets = {
     },
 
     columns: {
-        load: function (e, name, description, partial, isprivate) {
+        load: function (e, name, description, partial, type) {
             e.preventDefault();
             //display popup with list of dataset columns
             S.ajax.post('DataSets/LoadColumns', { partial:partial },
@@ -76,7 +78,7 @@ S.editor.datasets = {
                         e2.preventDefault();
                         $('.popup button.apply').hide();
                         //finally, create new dataset and load tab for new dataset
-                        S.editor.datasets.add.finish(name, description, partial, isprivate);
+                        S.editor.datasets.add.finish(name, description, partial, type);
                     });
                     $('.dataset-columns').css({ width: 500 });
                 },
@@ -222,7 +224,7 @@ S.editor.datasets = {
                 var txtsearch = $('.tab-toolbar .search-dataset');
                 txtsearch.val(search);
                 txtsearch.on('keyup', (e) => {
-                    if (event.key === "Enter") {
+                    if (e.key === "Enter") {
                         search = txtsearch.val();
                         S.editor.datasets.records.show(id, partial, name, lang);
                     }
@@ -267,8 +269,8 @@ S.editor.datasets = {
                             popup.find('button.apply').hide();
                             var newname = $('#dataset_name').val();
                             var description = $('#dataset_description').val();
-                            var isprivate = $('#dataset_private')[0].checked;
-                            S.ajax.post('Datasets/UpdateInfo', { datasetId: id, name: newname, description: description, isprivate: isprivate}, (response) => {
+                            var type = $('#dataset_type').val();
+                            S.ajax.post('Datasets/UpdateInfo', { datasetId: id, name: newname, description: description, type: type}, (response) => {
                                 S.popup.hide();
                                 //change datasets dropdown menu item, tab title & toolbar title with updated dataset name
                                 name = newname;
@@ -428,13 +430,34 @@ S.editor.datasets = {
             }, (err) => {
                 S.editor.error('', err.responseText);
             });
+        },
+
+        relationship: {
+            list: {
+                show: function (parentId, datasetId, recordId, column, keycolumn, lang, e) {
+                    var target = $(e.target);
+                    var container = target.parents('.vendor-input');
+                    S.editor.fields.custom.list.tab('list-items', e);
+                    var div = container.find('.list-items');
+                    if (div.css('display') != 'none') {
+                        //list is toggled on
+                        var data = { parentId: parentId, datasetId: datasetId, recordId: recordId, column: column, keycolumn: keycolumn, lang: lang };
+                        S.ajax.post('DataSets/RenderContentFieldListItems', data, (response) => {
+                            var list = container.find('.list-items .contents');
+                            list.html(response);
+                            list.find('li').removeAttr('draggable');
+                            list.find('.close-btn').remove(); //remove ability to delete list items
+                        });
+                    }
+                }
+            }
         }
     },
 
-    viewOwner: function (e, userId, email) {
+    viewOwner: function (e, userId) {
         e.preventDefault();
         e.cancelBubble = true;
-        S.editor.users.details.show(userId, email);
+        S.editor.users.details.show(userId);
         return false;
     }
 };

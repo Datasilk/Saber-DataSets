@@ -8,6 +8,7 @@ BEGIN TRY
         [partialview] NVARCHAR(255) NOT NULL DEFAULT '', 
         [datecreated] DATETIME2 NOT NULL DEFAULT GETUTCDATE(), 
         [description] NVARCHAR(MAX) NOT NULL, 
+        [userdata] BIT NOT NULL DEFAULT 0,
         [deleted] BIT NOT NULL DEFAULT 0
     )
 END TRY
@@ -278,6 +279,7 @@ DROP PROCEDURE IF EXISTS [dbo].[DataSet_Create]
 GO
 CREATE PROCEDURE [dbo].[DataSet_Create]
 	@userId int NULL = NULL,
+	@userdata bit = 0,
 	@label nvarchar(64),
 	@description nvarchar(MAX),
 	@partialview nvarchar(255),
@@ -403,8 +405,8 @@ AS
 	EXECUTE sp_executesql @indexes
 
 	--finally, record dataset info
-	INSERT INTO DataSets (userId, [label], tableName, partialview, [description], datecreated, deleted)
-	VALUES (@userId, @label, @tablename, @partialview, @description, GETUTCDATE(), 0)
+	INSERT INTO DataSets (userId, [label], tableName, partialview, [description], datecreated, userdata, deleted)
+	VALUES (@userId, @label, @tablename, @partialview, @description, GETUTCDATE(), @userdata, 0)
 
 	DECLARE @datasetId int
 	SELECT @datasetId = datasetId FROM DataSets WHERE tableName=@tablename
@@ -654,13 +656,15 @@ GO
 CREATE PROCEDURE [dbo].[DataSet_UpdateInfo]
 	@datasetId int,
 	@userId int NULL,
+	@userdata bit = 0,
 	@label nvarchar(64),
 	@description nvarchar(MAX)
 AS
 	DECLARE @uid int
 	SELECT @uid = userId FROM DataSets WHERE datasetId=@datasetId
 	IF @uid IS NOT NULL AND @userId IS NOT NULL SET @userId = @uid -- make sure to keep original dataset owner
-	UPDATE DataSets SET userId=@userId, [label]=@label, [description]=@description WHERE datasetId=@datasetId
+	UPDATE DataSets SET userId=@userId, [label]=@label, [description]=@description, userdata=@userdata 
+	WHERE datasetId=@datasetId
 
 /* ////////////////////////////////////////////////////////////////////////////////////// */
 

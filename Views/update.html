@@ -8,9 +8,13 @@
     <div class="row input">
         <input type="text" maxlength="255" id="dataset_description" value="{{description}}"  />
     </div>
+    <div class="row field">Type</div>
     <div class="row pad-top">
-        <input type="checkbox" id="dataset_private" {{isprivate}}checked="checked"{{/isprivate}} />
-        <label for="dataset_private">Make this Data Set private</label>
+        <select id="dataset_type">
+            <option value="0" {{is-public-data}}selected{{/is-public-data}}>Public Data</option>
+            <option value="1" {{is-user-data}}selected{{/is-user-data}}>User Data</option>
+            <option value="2" {{is-private-data}}selected{{/is-private-data}}>Private Data Set</option>
+        </select>
     </div>
     <div class="row pad-top text-center">
         <button class="apply">Save Changes</button>

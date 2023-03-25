@@ -177,27 +177,21 @@ namespace Saber.Vendors.DataSets
             return html.ToString();
         }
 
-        //private string GetPath(string path)
-        //{
-        //    if (path[0] == '/') { path = path.Substring(1); }
-        //
-        //    //replace pointer paths with relative paths
-        //    var pointer = ViewPartialPointers.Paths.Where(a => path.IndexOf(a.Key) == 0).Select(p => new { p.Key, p.Value }).FirstOrDefault();
-        //    if (pointer != null)
-        //    {
-        //        path = path.Replace(pointer.Key, pointer.Value);
-        //    }
-        //    return '/' + path;
-        //}
+        public enum DatasetType
+        {
+            PublicData = 0,
+            UserData = 1,
+            Private = 2
+        }
 
-        public string Create(string name, string partial, string description, List<Query.Models.DataSets.Column> columns, bool isprivate = false)
+        public string Create(string name, string partial, string description, List<Query.Models.DataSets.Column> columns, DatasetType type = DatasetType.PublicData)
         {
             if (IsPublicApiRequest || !CheckSecurity("create-datasets")) { return AccessDenied(); }
             //if(columns == null || columns.Count <= 0 || columns[0].Name == null || columns[0].Name == "") { return Error("No columns were defined"); }
             try
             {
                 var key = name.Replace(" ", "_");
-                var id = Query.DataSets.Create(name, partial, description, columns, isprivate == true ? User.UserId : null);
+                var id = Query.DataSets.Create(name, partial, description, columns, type == DatasetType.Private ? User.UserId : null, type == DatasetType.UserData);
                 var datasource = new Saber.Vendors.DataSets.DataSources();
                 Core.DataSources.Add(new DataSourceInfo()
                 {
@@ -236,7 +230,6 @@ namespace Saber.Vendors.DataSets
         {
             if (IsPublicApiRequest || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
-            var data = Query.DataSets.GetRecords(datasetId, start, length, lang, User.UserId, filters, sort);
             var view = new View("/Vendors/DataSets/Views/dataset.html");
             var viewMenu = new View("/Vendors/DataSets/Views/record-menu.html");
             var header = new StringBuilder();
@@ -253,28 +246,41 @@ namespace Saber.Vendors.DataSets
                 foreach(var rel in relationships)
                 {
                     viewRelationship.Clear();
-                    viewRelationship["id"] = rel.childId.ToString();
-                    viewRelationship["name"] = rel.childLabel;
+                    if(rel.childId == datasetId)
+                    {
+                        viewRelationship["id"] = rel.parentId.ToString();
+                        viewRelationship["name"] = rel.parentLabel;
+                    }
+                    else
+                    {
+                        viewRelationship["id"] = rel.childId.ToString();
+                        viewRelationship["name"] = rel.childLabel;
+                    }
                     html.Append(viewRelationship.Render());
                 }
                 view.Show("has-relationships");
                 view["relationships"] = html.ToString();
             }
 
+            //display other information about dataset
+            if (dataset.userdata) { view.Show("has-userdata"); }
+
             //load list of records
-            if(data.Count > 0)
+            var data = Query.DataSets.GetRecords(datasetId, start, length, lang, User.UserId, filters, sort);
+            if (data.Count > 0)
             {
                 //generate table header
+
                 var i = 0;
                 foreach (var item in data.First())
                 {
                     //load dataset column names in header row
                     i++;
-                    if( (i <= 4 && i != 3) || (i == 5 && !User.IsAdmin)) 
+                    if( (i <= 4 && i != 3) || (i == 5 && !(dataset.userdata || dataset.userId.HasValue))) 
                     {
                         //skip username, useremail, lang, & userId columns
                         continue; 
-                    }else if((i == 5 && User.IsAdmin))
+                    }else if(i == 5 && (dataset.userdata || dataset.userId.HasValue))
                     {
                         header.Append("<td class=\"owner\"><b>Owner</b></td>");
                     }
@@ -299,18 +305,17 @@ namespace Saber.Vendors.DataSets
                     rows.Append("<tr data-id=\"" + recordId + "\">");
                     i = 0;
                     var username = item.ContainsKey("username") && item["username"] != null ? item["username"].ToString() : "";
-                    var useremail = item.ContainsKey("useremail") && item["useremail"] != null ? item["useremail"].ToString() : "";
                     foreach (var col in item)
                     {
                         i++;
-                        if (i <= 4 && i != 3) {
+                        if ((i <= 4 && i != 3) || (i == 5 && !(dataset.userdata || dataset.userId.HasValue))) {
                             //skip username, recordId, & lang columns
                             continue; 
                         } 
-                        if(i == 5 && User.IsAdmin == true)
+                        if(i == 5 && (dataset.userdata || dataset.userId.HasValue))
                         {
                             //display user information to Admin
-                            rows.Append("<td class=\"no-details\"><a href=\"javascript:\" onclick=\"S.editor.datasets.viewOwner(event, " + col.Value + ",'" + useremail + "')\">" + username + "</a></td>");
+                            rows.Append("<td class=\"no-details\"><a href=\"javascript:\" onclick=\"S.editor.datasets.viewOwner(event, " + col.Value + ")\">" + username + "</a></td>");
                         }
                         else if (lists.Any(a => a == col.Key))
                         {
@@ -341,15 +346,27 @@ namespace Saber.Vendors.DataSets
             var view = new View("/Vendors/DataSets/Views/update.html");
             view["name"] = dataset.label;
             view["description"] = dataset.description;
+            if(dataset.userId.HasValue && dataset.userId.Value > 0)
+            {
+                view.Show("is-private-data");
+            }
+            else if(dataset.userdata == true)
+            {
+                view.Show("is-user-data");
+            }
+            else
+            {
+                view.Show("is-public-data");
+            }
             if (dataset.userId.HasValue) { view.Show("isprivate"); }
             return view.Render();
         }
 
-        public string UpdateInfo(int datasetId, string name, string description, bool isprivate)
+        public string UpdateInfo(int datasetId, string name, string description, DatasetType type)
         {
             if (IsPublicApiRequest || !CheckSecurity("edit-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
-            Query.DataSets.UpdateInfo(datasetId, isprivate == true ? User.UserId : null, name, description);
+            Query.DataSets.UpdateInfo(datasetId, type == DatasetType.Private ? User.UserId : null, type == DatasetType.UserData, name, description);
             Cache.DataSources = null;
             return Success();
         }
@@ -490,18 +507,21 @@ namespace Saber.Vendors.DataSets
             var view = new View(string.Join("/", paths) + (path.Contains(".html") ? "" : ".html"));
             var parentId = Parameters.ContainsKey("parentId") ? int.Parse(Parameters["parentId"]) : 0;
             var datasetId = Parameters.ContainsKey("datasetId") ? int.Parse(Parameters["datasetId"]) : 0;
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
             var recordId = Parameters.ContainsKey("recordId") ? int.Parse(Parameters["recordId"]) : 0;
             var relationships = Query.DataSets.Relationships.GetList(datasetId);
             var columns = Query.DataSets.GetColumns(datasetId);
             var lists = view.Elements.Where(a => a.Name == "list" || a.Name.IndexOf("list-") == 0);
             var fieldTypes = new Dictionary<string, ContentFields.FieldType>();
-            var hideElements = new List<string>();
+            Dictionary<string, Dictionary<string, string>> extraArgs = null;
+            if (exclude == null) { exclude = new List<string>(); }
+
             foreach(var elem in view.Elements)
             {
                 var i = relationships.FindIndex(a => a.childId == datasetId && a.childColumn == elem.Name);
                 if (i >= 0)
                 {
-                    hideElements.Add(elem.Name);
+                    exclude.Add(elem.Name);
                 }
             }
             foreach(var list in lists)
@@ -509,54 +529,57 @@ namespace Saber.Vendors.DataSets
                 var columnName = list.Name.Replace("-", "_");
                 var field = "";
                 var parts = new List<string>();
+                var relationship = relationships.Where(a => a.parentId == datasetId && a.parentList == list.Name).FirstOrDefault(); 
+                
                 if (fields.ContainsKey(columnName))
                 {
                     field = fields[columnName];
                     parts = field.Split("|!|").ToList();
                 }
-                var relationship = relationships.Where(a => a.parentId == datasetId && a.parentList == list.Name).FirstOrDefault();
-                if(relationship != null && field.IndexOf("data-src=") < 0)
+                if (relationship != null)
                 {
-                    parts.Add("data-src=dataset-" + relationship.childId);
+                    //add parts to list field data related to relationship
+                    if (field.IndexOf("data-src=") < 0)
+                    {
+                        parts.Add("data-src=dataset-" + relationship.childId);
+                    }
+                    if (relationship.listType == 0 && !parts.Contains("single"))
+                    {
+                        parts.Add("single");
+                    }
+                    if (!parts.Contains("add") && data != null && data.Count > 0 && relationship.listType == 2)
+                    {
+                        parts.Add("add");
+                        //add position, filter, & order by fields for child data source
+                        parts.Add("lists={\"dataset-" + relationship.childId + "\":{\"p\":{},\"f\":[],\"o\":[]}}");
+                    }
+                    else if ((data == null || data.Count == 0) && relationship.listType == 2)
+                    {
+                        exclude.Add(list.Name);
+                    }
                 }
                 if (!parts.Contains("locked"))
                 {
+                    //all lists are locked, meaning user cannot change data source
                     parts.Add("locked");
-                }
-                if (relationship!= null && relationship.listType == 0 && !parts.Contains("single"))
-                {
-                    parts.Add("single");
-                }
-                if (!parts.Contains("add") && data != null && data.Count > 0 && relationship.listType == 2)
-                {
-                    parts.Add("add");
-                    parts.Add("filter=[]");//include filter groups array
-                    parts.Add("sort=[]");//include sort array
-                }
-                else if((data == null || data.Count == 0) && relationship.listType != 1)
-                {
-                    hideElements.Add(list.Name);
                 }
                 fields[list.Name] = string.Join("|!|", parts.Where(a => !string.IsNullOrEmpty(a)));
 
-                //add arguments to mustache code
-                if (!list.Vars.ContainsKey("renderapi"))
+                if (relationship != null && relationship.listType == 2)
                 {
-                    list.Vars.Add("renderapi", "DataSets/RenderContentFields?parentId=" + datasetId + "&datasetId=" + relationship.childId + "&recordId=" + recordId);
-                }
-            }
+                    //add extra variable for list so when user clicks Add button, it will add a new
+                    //list item to the child data source
+                    var keyvar = list.Vars.ContainsKey("key") ? list.Vars["key"] : Cache.DataSources[relationship.childId].Columns.Where(a => a.DataType == DataSource.DataType.Text).FirstOrDefault()?.Name ?? "";
+                    extraArgs = new Dictionary<string, Dictionary<string, string>>
+                    {
+                        { list.Name, new Dictionary<string, string>() { 
+                            { "render-api", "DataSets/RenderContentFields?parentId=" + datasetId + "&datasetId=" + relationship.childId + "&recordId=" + recordId },
 
-            //hide all unusable lists
-            foreach(var elem in hideElements)
-            {
-                var i = view.Elements.FindIndex(a => a.Name == elem);
-                view.Elements[i] = new ViewElement()
-                {
-                    Name = "",
-                    Html = "",
-                    Var = "",
-                    Vars = new Dictionary<string, string>()
-                };
+                            { "list-click", "S.editor.datasets.records.relationship.list.show(" + datasetId + "," + relationship.childId + "," + recordId + ", '" + relationship.childColumn + "', '" + keyvar + "', '" + language + "', event)" },
+                            { "hide-filter", "1" }
+                        } }
+                    };
+                }
             }
 
             //find datatypes for fields
@@ -586,7 +609,7 @@ namespace Saber.Vendors.DataSets
                 }
             }
 
-            var result = Saber.Core.ContentFields.RenderForm(this, "", view, language, container, fields, exclude?.ToArray(), fieldTypes);
+            var result = Saber.Core.ContentFields.RenderForm(this, "", view, language, container, fields, exclude?.ToArray(), fieldTypes, extraArgs);
 
             if (string.IsNullOrWhiteSpace(result))
             {
@@ -625,18 +648,53 @@ namespace Saber.Vendors.DataSets
 
             return Response(result + html.ToString());
         }
+        
+        public string RenderContentFieldListItems(int parentId, int datasetId, string recordId, string column, string keycolumn, string lang = "en")
+        {
+            if (IsPublicApiRequest || !CheckSecurity("edit-content")) { return AccessDenied(); }
+            if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to dataset ID " + datasetId); }
+            if (!IsOwner(parentId, out var parentDataset)) { return AccessDenied("You do not have access to dataset ID " + parentId); }
+            var viewItem = new View("/Views/ContentFields/list-item.html");
+            var datasource = new Saber.Vendors.DataSets.DataSources();
+            var key = datasource.Prefix + "-" + datasetId;
+            var childSource = Core.Vendors.DataSources.Where(a => a.Key == key).First();
+            var filterGroups = new List<DataSource.FilterGroup>()
+            {
+                new DataSource.FilterGroup()
+                {
+                    Elements = new List<DataSource.FilterElement>()
+                    {
+                        new DataSource.FilterElement()
+                        {
+                            Column = column,
+                            Value = recordId.ToString(),
+                            Match = DataSource.FilterMatchType.Equals,
+                        }
+                    }
+                }
+            };
+            var results = childSource.Helper.Filter(this, datasetId.ToString(), 1, 100, lang, filterGroups);
+            var html = new StringBuilder();
+            var i = 0;
+            foreach(var item in results)
+            {
+                i++;
+                viewItem.Clear();
+                viewItem["index"] = i.ToString();
+                viewItem["onclick"] = "";
+                viewItem["label"] = item[keycolumn];
+                html.Append(viewItem.Render());
+            }
+            return "<ul class=\"list\">" + html.ToString() + "</ul>";
+        }
         #endregion
 
         #region "Helpers"
 
         private bool IsOwner(int datasetId, out Query.Models.DataSet dataset)
         {
-            dataset = Query.DataSets.GetInfo(datasetId);
-            if (User.IsAdmin == true || (dataset.userId.HasValue && dataset.userId == User.UserId))
-            {
-                return true;
-            }
-            return false;
+            dataset = Cache.DataSets[datasetId];
+            return User.IsAdmin == true || (dataset.userId.HasValue && dataset.userId == User.UserId);
         }
 
         private string ConvertFieldToString(object item)

@@ -13,9 +13,13 @@
         <div class="col"><input type="text" id="dataset_partial" /></div>
         <div class="col right"><a href="javascript:" class="button btn-browse">Browse...</a></div>
     </div>
+    <div class="row field">Type</div>
     <div class="row pad-top">
-        <input type="checkbox" id="dataset_private" />
-        <label for="dataset_private">Make this Data Set private</label>
+        <select id="dataset_type">
+            <option value="0">Public Data</option>
+            <option value="1">User Data</option>
+            <option value="2">Private Data Set</option>
+        </select>
     </div>
     <div class="row pad-top text-center">
         <button class="apply">Continue</button>

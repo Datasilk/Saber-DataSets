@@ -8,6 +8,7 @@
         [partialview] NVARCHAR(255) NOT NULL DEFAULT '', 
         [datecreated] DATETIME2 NOT NULL DEFAULT GETUTCDATE(), 
         [description] NVARCHAR(MAX) NOT NULL, 
+        [userdata] BIT NOT NULL DEFAULT 0,
         [deleted] BIT NOT NULL DEFAULT 0
     )
 END TRY

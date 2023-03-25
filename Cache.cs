@@ -1,20 +1,18 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Saber.Vendor;
+﻿using Saber.Vendor;
 
 namespace Saber.Vendors.DataSets
 {
     public static class Cache
     {
-        private static List<DataSource> _dataSources { get; set; }
-        private static List<Query.Models.DataSet> _dataSets { get; set; }
+        private static Dictionary<int, DataSource> _dataSources { get; set; }
+        private static Dictionary<int, Query.Models.DataSet> _dataSets { get; set; }
 
-        public static List<DataSource> DataSources
+        public static Dictionary<int, DataSource> DataSources
         {
             get {
                 if(_dataSources == null)
                 {
-                    _dataSources = new List<DataSource>();
+                    _dataSources = new Dictionary<int, DataSource>();
                     var datasets = Query.DataSets.GetList();
                     var columns = Query.DataSets.GetAllColumns();
                     var relationships = Query.DataSets.Relationships.GetAll();
@@ -24,7 +22,7 @@ namespace Saber.Vendors.DataSets
                         foreach(var dataset in datasets)
                         {
                             var key = dataset.datasetId.ToString();
-                            _dataSources.Add(new DataSource()
+                            _dataSources.Add(dataset.datasetId, new DataSource()
                             {
                                 Key = key,
                                 Name = dataset.label,
@@ -42,11 +40,11 @@ namespace Saber.Vendors.DataSets
                         }
                         foreach(var datasource in _dataSources)
                         {
-                            if(datasource.Relationships.Length > 0)
+                            if(datasource.Value.Relationships.Length > 0)
                             {
-                                foreach(var relationship in datasource.Relationships)
+                                foreach(var relationship in datasource.Value.Relationships)
                                 {
-                                    relationship.Child = _dataSources.Where(a => a.Key == relationship.ChildKey.Replace("dataset-", "")).FirstOrDefault();
+                                    relationship.Child = _dataSources[int.Parse(relationship.ChildKey.Replace("dataset-", ""))];
                                 }
                             }
                         }
@@ -61,13 +59,18 @@ namespace Saber.Vendors.DataSets
             }
         }
 
-        public static List<Query.Models.DataSet> DataSets
+        public static Dictionary<int, Query.Models.DataSet> DataSets
         {
             get
             {
                 if (_dataSets == null)
                 {
-                    _dataSets = Query.DataSets.GetList();
+                    var list = Query.DataSets.GetList();
+                    _dataSets = new Dictionary<int, Query.Models.DataSet>();
+                    foreach (var item in list)
+                    {
+                        _dataSets.Add(item.datasetId, item);
+                    }
                 }
                 return _dataSets;
             }

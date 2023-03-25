@@ -12,6 +12,7 @@ namespace Query.Models
         public string partialview { get; set; }
         public string description { get; set; }
         public DateTime datecreated { get; set; }
+        public bool userdata { get; set; }
         public bool deleted { get; set; }
     }
 }

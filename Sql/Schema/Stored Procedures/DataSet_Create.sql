@@ -2,6 +2,7 @@
 GO
 CREATE PROCEDURE [dbo].[DataSet_Create]
 	@userId int NULL = NULL,
+	@userdata bit = 0,
 	@label nvarchar(64),
 	@description nvarchar(MAX),
 	@partialview nvarchar(255),
@@ -127,8 +128,8 @@ AS
 	EXECUTE sp_executesql @indexes
 
 	--finally, record dataset info
-	INSERT INTO DataSets (userId, [label], tableName, partialview, [description], datecreated, deleted)
-	VALUES (@userId, @label, @tablename, @partialview, @description, GETUTCDATE(), 0)
+	INSERT INTO DataSets (userId, [label], tableName, partialview, [description], datecreated, userdata, deleted)
+	VALUES (@userId, @label, @tablename, @partialview, @description, GETUTCDATE(), @userdata, 0)
 
 	DECLARE @datasetId int
 	SELECT @datasetId = datasetId FROM DataSets WHERE tableName=@tablename
