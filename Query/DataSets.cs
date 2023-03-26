@@ -166,17 +166,45 @@ GO
 SELECT u.name AS username, u.email AS useremail, d.*
 FROM [DataSet_" + dataset.tableName + @"] d
 LEFT JOIN Users u ON u.userId=d.userId
-WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"' 
-AND d.[" + child.ChildColumn + @"] IN (SELECT id FROM " + tmpTable + ")");
+WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"'"); 
 
+                    //make sure no-relationship doesn't exist in the filters
                     key = "dataset-" + childId.ToString();
+                    var single_selection = false;
+                    var parent_column = ""; //parent column where selection ID resides
+                    if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
+                    {
+                        foreach(var filter in filters[key])
+                        {
+                            var f = filter.Elements.Where(a => a.Value == "#single-selection").FirstOrDefault();
+                            if(f != null)
+                            {
+                                single_selection = true;
+                                parent_column = f.Column;
+                                break;
+                            }
+                        }
+                    }
+                    if(single_selection == false)
+                    {
+                        sql.Append(@"AND d.[" + child.ChildColumn + @"] IN (SELECT id FROM " + tmpTable + ")");
+                    }
+                    else
+                    {
+                        sql.Append(@"AND EXISTS(SELECT * FROM " + tmpTable + " WHERE [" + parent_column + "] " +
+                            "LIKE '%selected=' + CAST(d.id AS varchar(16)))");
+                    }
                     if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
                     {
                         for (var x = 0; x < filters[key].Count; x++)
                         {
                             //generate root filter group sql
                             var group = filters[key][x];
-                            sql.Append(" AND " + GetFilterGroupSql(group, childsource.Columns));
+                            var groupSql = GetFilterGroupSql(group, childsource.Columns);
+                            if (!string.IsNullOrEmpty(groupSql))
+                            {
+                                sql.Append(" AND " + groupSql);
+                            }
                         }
                     }
                     if (sort != null && sort.ContainsKey(key) && sort[key].Count > 0)
@@ -381,15 +409,16 @@ AND d.[" + child.ChildColumn + @"] IN (SELECT id FROM " + tmpTable + ")");
 
         #endregion
 
-        private static string GetFilterGroupSql(Saber.Vendor.DataSource.FilterGroup group, Saber.Vendor.DataSource.Column[] columns)
+        private static string GetFilterGroupSql(Saber.Vendor.DataSource.FilterGroup group, Saber.Vendor.DataSource.Column[] columns, string childColumn = "")
         {
-            var sql = new StringBuilder("( \n");
+            var sql = new StringBuilder();
             if(group.Elements != null && group.Elements.Count > 0)
             {
                 for (var x = 0; x < group.Elements.Count; x++)
                 {
                     var element = group.Elements[x];
                     var column = columns.Where(a => a.Name == element.Column).FirstOrDefault();
+                    if(element.Value == "#single-selection") { continue; }
                     if(element.Column == "id")
                     {
                         column = new Saber.Vendor.DataSource.Column()
@@ -512,8 +541,12 @@ AND d.[" + child.ChildColumn + @"] IN (SELECT id FROM " + tmpTable + ")");
                     sql.Append(GetFilterGroupSql(sub, columns));
                 }
             }
-            sql.Append(")\n");
-            return sql.ToString();
+            if (sql.Length > 0)
+            {
+                sql.Append(")\n");
+                return "( \n" + sql.ToString();
+            }
+            return "";
         }
 
         public static void AddRecord(int userId, int datasetId, string lang, List<Models.DataSets.Field> fields, int recordId = 0)
