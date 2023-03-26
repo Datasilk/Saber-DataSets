@@ -103,6 +103,7 @@ AS
 		IF @datatype = 'relationship' BEGIN
 			SET @newname = REPLACE(@name, '-', '_')
 			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
+			IF @listtype = 0 SET @columnname = ''
 			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=#datasetId#, @childId=' + @dataset + ', @parentList=''' + @name + ''', @childColumn=''' + @columnname + ''', @listtype=' + @listtype + CHAR(13) 
 		END
 		IF @datatype = 'relationship-id' BEGIN
