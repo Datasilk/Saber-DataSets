@@ -86,11 +86,11 @@ AS
 			SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
 		END
 		IF @datatype = 'number' BEGIN
-			SET @sql = @sql + '[' + @name + '] INT NULL ' + CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default END
+			SET @sql = @sql + '[' + @name + '] INT NULL ' + (CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default ELSE '' END)
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'decimal' BEGIN
-			SET @sql = @sql + '[' + @name + '] DECIMAL(18,0) NULL ' + CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default END
+			SET @sql = @sql + '[' + @name + '] DECIMAL(18,0) NULL ' + (CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default ELSE '' END)
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'bit' BEGIN
