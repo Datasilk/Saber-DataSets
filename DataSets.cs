@@ -235,7 +235,7 @@ namespace Saber.Vendors.DataSets
             var header = new StringBuilder();
             var rows = new StringBuilder();
             var partial = new View("/Content/" + dataset.partialview);
-            var lists = partial.Elements.Where(a => a.Name == "list" || a.Name.IndexOf("list-") == 0).Select(a => a.Name.Replace("-", "_")).ToList();
+            var lists = partial.Elements.Where(a => a.Name == "list" || a.Name.IndexOf("list-") == 0).Select(a => a.Name).ToList();
 
             //load relationship data sets list
             var relationships = Query.DataSets.Relationships.GetList(datasetId);
@@ -429,7 +429,7 @@ namespace Saber.Vendors.DataSets
             {
                 return Error("No fields were included when trying to create a new record");
             }
-            Query.DataSets.AddRecord(User.UserId, datasetId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key.Replace("-", "_"), Value = a.Value }).ToList(), recordId);
+            Query.DataSets.AddRecord(User.UserId, datasetId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList(), recordId);
             return Success();
         }
 
@@ -478,7 +478,7 @@ namespace Saber.Vendors.DataSets
             {
                 return Error("No fields were included when trying to update an existing record");
             }
-            Query.DataSets.UpdateRecord(User.UserId, datasetId, recordId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key.Replace("-", "_"), Value = a.Value }).ToList());
+            Query.DataSets.UpdateRecord(User.UserId, datasetId, recordId, lang, fields.Select(a => new Query.Models.DataSets.Field() { Name = a.Key, Value = a.Value }).ToList());
             return Success();
         }
 
@@ -526,7 +526,7 @@ namespace Saber.Vendors.DataSets
             }
             foreach(var list in lists)
             {
-                var columnName = list.Name.Replace("-", "_");
+                var columnName = list.Name;
                 var field = "";
                 var parts = new List<string>();
                 var relationship = relationships.Where(a => a.parentId == datasetId && a.parentList == list.Name).FirstOrDefault(); 
@@ -585,8 +585,7 @@ namespace Saber.Vendors.DataSets
             //find datatypes for fields
             foreach (var elem in view.Elements.Where(a => !string.IsNullOrEmpty(a.Name) && a.isBlock == false).Select(a => a.Name).Distinct())
             {
-                var name = elem.Replace("-", "_");
-                var datatype = columns.Where(a => a.Name == name).FirstOrDefault();
+                var datatype = columns.Where(a => a.Name == elem).FirstOrDefault();
                 if (datatype != null)
                 {
                     switch (datatype.DataType.ToLower())
