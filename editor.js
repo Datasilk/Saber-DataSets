@@ -150,7 +150,10 @@ S.editor.datasets = {
                                     Name: $(a).find('.column-name').val(),
                                     DataType: $(a).find('.column-datatype').val(),
                                     MaxLength: $(a).find('.column-maxlength').val() || '0',
-                                    DefaultValue: $(a).find('.column-default').val() || ''
+                                    DefaultValue: $(a).find('.column-default').val() || '',
+                                    Dataset: $(a).find('.column-dataset').val() || '',
+                                    ColumnName: $(a).find('.column-colname').val() || '',
+                                    ListType: $(a).find('.column-listtype').val() || '',
                                 };
                             })
                         };

@@ -113,7 +113,7 @@ AS
 			SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
 		END
 		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @columnname, @listtype
-		SET @sql = @sql + ', '
+		IF @@FETCH_STATUS = 0 SET @sql = @sql + ', '
 	END
 	CLOSE @cursor
 	DEALLOCATE @cursor

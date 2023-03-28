@@ -363,11 +363,11 @@ AS
 			SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
 		END
 		IF @datatype = 'number' BEGIN
-			SET @sql = @sql + '[' + @name + '] INT NULL ' + CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default END
+			SET @sql = @sql + '[' + @name + '] INT NULL ' + (CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default ELSE '' END)
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'decimal' BEGIN
-			SET @sql = @sql + '[' + @name + '] DECIMAL(18,0) NULL ' + CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default END
+			SET @sql = @sql + '[' + @name + '] DECIMAL(18,0) NULL ' + (CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default ELSE '' END)
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'bit' BEGIN
@@ -378,8 +378,7 @@ AS
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'relationship' BEGIN
-			SET @newname = REPLACE(@name, '-', '_')
-			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
+			SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
 			IF @listtype = 0 SET @columnname = ''
 			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=#datasetId#, @childId=' + @dataset + ', @parentList=''' + @name + ''', @childColumn=''' + @columnname + ''', @listtype=' + @listtype + CHAR(13) 
 		END
@@ -388,11 +387,10 @@ AS
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'list' BEGIN
-			SET @newname = REPLACE(@name, '-', '_')
-			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
+			SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
 		END
 		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @columnname, @listtype
-		SET @sql = @sql + ', '
+		IF @@FETCH_STATUS = 0 SET @sql = @sql + ', '
 	END
 	CLOSE @cursor
 	DEALLOCATE @cursor
@@ -603,11 +601,11 @@ AS
 			SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
 		END
 		IF @datatype = 'number' BEGIN
-			SET @sql = @sql + '[' + @name + '] INT NULL ' + CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default END
+			SET @sql = @sql + '[' + @name + '] INT NULL ' + (CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default ELSE '' END)
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'decimal' BEGIN
-			SET @sql = @sql + '[' + @name + '] DECIMAL(18,0) NULL ' + CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default END
+			SET @sql = @sql + '[' + @name + '] DECIMAL(18,0) NULL ' + (CASE WHEN @default IS NOT NULL AND @default != '' THEN 'DEFAULT ' + @default ELSE '' END)
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'bit' BEGIN
@@ -618,20 +616,18 @@ AS
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'relationship' BEGIN
-			SET @newname = REPLACE(@name, '-', '_')
-			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
-			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=#datasetId#, @childId=' + @dataset + ', @parentList=''' + @name + ''', @childColumn=''' + @columnname + ''', @listtype=' + @listtype + CHAR(13) 
+			SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
+			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=' + CAST(@datasetId AS nvarchar(MAX)) + ', @childId=' + @dataset + ', @parentList=''' + @name + ''', @childColumn=''' + @columnname + ''', @listtype=' + @listtype + CHAR(13) 
 		END
 		IF @datatype = 'relationship-id' BEGIN
 			SET @sql = @sql + '[' + @name + '] INT NOT NULL DEFAULT 0'
 			SET @indexes = @indexes + 'CREATE INDEX [IX_DataSet_' + @tableName + '_' + @name + '] ON [dbo].[DataSet_' + @tableName + '] ([' + @name + '])'
 		END
 		IF @datatype = 'list' BEGIN
-			SET @newname = REPLACE(@name, '-', '_')
-			SET @sql = @sql + '[' + @newname + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
+			SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
 		END
 		FETCH NEXT FROM @cursor INTO @name, @datatype, @maxlength, @default, @dataset, @columnname, @listtype
-		SET @sql = @sql + ', '
+		IF @@FETCH_STATUS = 0 SET @sql = @sql + ', '
 	END
 	CLOSE @cursor
 	DEALLOCATE @cursor
@@ -643,6 +639,7 @@ AS
 	EXECUTE sp_executesql @sql
 	EXECUTE sp_executesql @indexes
 	IF @relationships != '' BEGIN
+		PRINT @relationships
 		EXECUTE sp_executesql @relationships
 	END
 

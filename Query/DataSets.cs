@@ -59,7 +59,11 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[x];
-                    sql.Append(" AND " + GetFilterGroupSql(group, datasource.Columns));
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns);
+                    if (groupSql != "")
+                    {
+                        sql.Append(" AND " + groupSql);
+                    }
                 }
             }
             if(sort != null && sort.Count > 0)
@@ -69,33 +73,40 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate order by sql
                     var orderby = sort[x];
-                    sql.Append(orderby.Column + 
+                    sql.Append("d." + orderby.Column + 
                         (orderby.Direction == Saber.Vendor.DataSource.OrderByDirection.Ascending ? " ASC" : " DESC") + 
                         (x < sort.Count - 1 ? ", " : ""));
                 }
             }
             else
             {
-                sql.Append(" ORDER BY id");
+                sql.Append(" ORDER BY d.id");
             }
             if(start > 0)
             {
                 sql.Append(" OFFSET " + (start - 1) + " ROWS FETCH NEXT " + length + " ROWS ONLY");
             }
 
-            var conn = new SqlConnection(Sql.ConnectionString);
-            var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
-            var reader = server.ConnectionContext.ExecuteReader(sql.ToString());
             var results = new List<IDictionary<string, object>>();
-            var columns = reader.GetColumnSchema();
-            while (reader.Read())
+            try
             {
-                var row = new Dictionary<string, object>();
-                foreach(var column in columns)
+                var conn = new SqlConnection(Sql.ConnectionString);
+                var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
+                var reader = server.ConnectionContext.ExecuteReader(sql.ToString());
+                var columns = reader.GetColumnSchema();
+                while (reader.Read())
                 {
-                    row.Add(column.ColumnName, reader[column.ColumnName]);
+                    var row = new Dictionary<string, object>();
+                    foreach (var column in columns)
+                    {
+                        row.Add(column.ColumnName, reader[column.ColumnName]);
+                    }
+                    results.Add(row);
                 }
-                results.Add(row);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message + "\n\n" + sql.ToString() + "\n\n", ex);
             }
             return results;
         }
@@ -126,7 +137,11 @@ WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? "d.userId=" + us
                 {
                     //generate root filter group sql
                     var group = filters[key][x];
-                    sql.Append(" AND " + GetFilterGroupSql(group, datasource.Columns));
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns);
+                    if (groupSql != "")
+                    {
+                        sql.Append(" AND " + groupSql);
+                    }
                 }
             }
             if (sort != null && sort.ContainsKey(key) && sort[key].Count > 0)
@@ -136,14 +151,14 @@ WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? "d.userId=" + us
                 {
                     //generate order by sql
                     var orderby = sort[key][x];
-                    sql.Append(orderby.Column +
+                    sql.Append("d." + orderby.Column +
                         (orderby.Direction == Saber.Vendor.DataSource.OrderByDirection.Ascending ? " ASC" : " DESC") +
                         (x < sort[key].Count - 1 ? ", \n" : "\n"));
                 }
             }
             else
             {
-                sql.Append("\n ORDER BY id");
+                sql.Append("\n ORDER BY d.id");
             }
             var parentPos = positions != null && positions.ContainsKey(key) ? positions[key] :
                 new Saber.Vendor.DataSource.PositionSettings() { Start = 1, Length = 10 };
@@ -164,7 +179,6 @@ WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? "d.userId=" + us
                 {
                     var childsource = Saber.Vendors.DataSets.Cache.DataSources[childId];
                     sql.Append(@"
-GO
 
 SELECT u.name AS username, u.email AS useremail, d.*
 FROM [DataSet_" + dataset.tableName + @"] d
@@ -217,14 +231,14 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                         {
                             //generate order by sql
                             var orderby = sort[key][x];
-                            sql.Append(orderby.Column +
+                            sql.Append("d." + orderby.Column +
                                 (orderby.Direction == Saber.Vendor.DataSource.OrderByDirection.Ascending ? " ASC" : " DESC") +
                                 (x < sort[key].Count - 1 ? ", \n" : "\n"));
                         }
                     }
                     else
                     {
-                        sql.Append("\n ORDER BY id");
+                        sql.Append("\n ORDER BY d.id");
                     }
                     var pos = positions != null && positions.ContainsKey(key) ? positions[key] :
                         new Saber.Vendor.DataSource.PositionSettings() { Start = 1, Length = 1000 };
@@ -276,7 +290,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message, ex);
+                throw new Exception(ex.Message + "\n\n" + sql.ToString() + "\n\n", ex);
             }
             return results;
         }
@@ -300,15 +314,27 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[x];
-                    sql.Append(" AND " + GetFilterGroupSql(group, datasource.Columns));
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns);
+                    if (groupSql != "")
+                    {
+                        sql.Append(" AND " + groupSql);
+                    }
                 }
             }
 
-            var conn = new SqlConnection(Sql.ConnectionString);
-            var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
-            var reader = server.ConnectionContext.ExecuteReader(sql.ToString());
-            reader.Read();
-            return (int)reader[0];
+            try
+            {
+                var conn = new SqlConnection(Sql.ConnectionString);
+                var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
+                var reader = server.ConnectionContext.ExecuteReader(sql.ToString());
+                reader.Read();
+                return (int)reader[0];
+            }
+            catch(Exception ex)
+            {
+                throw new Exception(ex.Message + "\n\n" + sql.ToString() + "\n\n", ex);
+            }
+            return 0;
         }
 
         public static Dictionary<string, int> GetRecordCountInRelationships(int datasetId, string lang = "en", int userId = 0, Dictionary<string, List<Saber.Vendor.DataSource.FilterGroup>> filters = null, string[] childKeys = null)
@@ -324,7 +350,6 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             //generate query for parent data set ///////////////////////////////////////////////////////////////////
             var sql = new StringBuilder(@"
 SELECT COUNT(*)
-INTO " + tmpTable + @"
 FROM [DataSet_" + dataset.tableName + @"] d
 LEFT JOIN Users u ON u.userId=d.userId
 WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
@@ -337,46 +362,13 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[key][x];
-                    sql.Append(" AND " + GetFilterGroupSql(group, datasource.Columns));
-                }
-            }
-            
-            sql.Append("\n\n\n SELECT * FROM " + tmpTable);
-            datasets.Add(dataset);
-
-            foreach (var child in datasource.Relationships.Where(a => a.Key == keyId))
-            {
-                //generate queries for child data sets ///////////////////////////////////////////////////////////////
-                if (childKeys != null && !childKeys.Contains("dataset-" + child.Child.Key)) { continue; }
-                var childId = int.Parse(child.Child.Key);
-                dataset = Saber.Vendors.DataSets.Cache.DataSets[childId];
-                if (dataset != null)
-                {
-                    var childsource = Saber.Vendors.DataSets.Cache.DataSources[childId];
-                    sql.Append(@"
-GO
-
-SELECT COUNT(*)
-FROM [DataSet_" + dataset.tableName + @"] d
-LEFT JOIN Users u ON u.userId=d.userId
-WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"' 
-AND d.[" + child.ChildColumn + @"] IN (SELECT id FROM " + tmpTable + ")");
-
-                    key = "dataset-" + childId.ToString();
-                    if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns);
+                    if (groupSql != "")
                     {
-                        for (var x = 0; x < filters[key].Count; x++)
-                        {
-                            //generate root filter group sql
-                            var group = filters[key][x];
-                            sql.Append(" AND " + GetFilterGroupSql(group, childsource.Columns));
-                        }
+                        sql.Append(" AND " + groupSql);
                     }
-                    sql.Append("\n\n\n");
-                    datasets.Add(dataset);
                 }
             }
-            sql.Append("\nDROP TABLE " + tmpTable + "\n");
 
             //execute query ///////////////////////////////////////////////////////////////////////////////////////////////////
             var results = new Dictionary<string, int>();
@@ -398,14 +390,15 @@ AND d.[" + child.ChildColumn + @"] IN (SELECT id FROM " + tmpTable + ")");
                     }
                     catch (Exception)
                     {
+                        results.Add(dataset.datasetId.ToString(), 0);
                     }
 
                     i++;
                 } while (reader.NextResult());
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-
+                throw new Exception(ex.Message + "\n\n" + sql.ToString() + "\n\n", ex);
             }
             return results;
         }

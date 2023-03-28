@@ -85,7 +85,7 @@ AS
 		END
 		IF @datatype = 'relationship' BEGIN
 			SET @sql = @sql + '[' + @name + '] NVARCHAR(MAX) NOT NULL DEFAULT '''''
-			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=#datasetId#, @childId=' + @dataset + ', @parentList=''' + @name + ''', @childColumn=''' + @columnname + ''', @listtype=' + @listtype + CHAR(13) 
+			SET @relationships = @relationships + 'EXEC DataSets_Relationship_Create @parentId=' + CAST(@datasetId AS nvarchar(MAX)) + ', @childId=' + @dataset + ', @parentList=''' + @name + ''', @childColumn=''' + @columnname + ''', @listtype=' + @listtype + CHAR(13) 
 		END
 		IF @datatype = 'relationship-id' BEGIN
 			SET @sql = @sql + '[' + @name + '] INT NOT NULL DEFAULT 0'
@@ -100,9 +100,13 @@ AS
 	CLOSE @cursor
 	DEALLOCATE @cursor
 
+	PRINT @sql
+	PRINT @indexes
+
 	--execute generated SQL code
 	EXECUTE sp_executesql @sql
 	EXECUTE sp_executesql @indexes
 	IF @relationships != '' BEGIN
+		PRINT @relationships
 		EXECUTE sp_executesql @relationships
 	END
