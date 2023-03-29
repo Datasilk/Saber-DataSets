@@ -187,65 +187,58 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
 
                     //make sure no-relationship doesn't exist in the filters
                     key = "dataset-" + childId.ToString();
-                    var single_selection = false;
-                    var parent_column = ""; //parent column where selection ID resides
-                    if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
-                    {
-                        foreach(var filter in filters[key])
-                        {
-                            var f = filter.Elements.Where(a => a.Value == "#single-selection").FirstOrDefault();
-                            if(f != null)
-                            {
-                                single_selection = true;
-                                parent_column = f.Column;
-                                break;
-                            }
-                        }
-                    }
-                    if(single_selection == false)
+                    if(child.Type != Saber.Vendor.DataSource.RelationshipType.SingleSelection && child.Type != Saber.Vendor.DataSource.RelationshipType.FilteredList)
                     {
                         sql.Append(@"AND d.[" + child.ChildColumn + @"] IN (SELECT id FROM " + tmpTable + ")");
                     }
-                    else
+                    else if(child.Type == Saber.Vendor.DataSource.RelationshipType.SingleSelection)
                     {
-                        sql.Append(@"AND EXISTS(SELECT * FROM " + tmpTable + " WHERE [" + parent_column + "] " +
+                        sql.Append(@"AND EXISTS(SELECT * FROM " + tmpTable + " WHERE [" + child.ChildColumn + "] " +
                             "LIKE '%selected=' + CAST(d.id AS varchar(16)))");
                     }
-                    if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
-                    {
-                        for (var x = 0; x < filters[key].Count; x++)
-                        {
-                            //generate root filter group sql
-                            var group = filters[key][x];
-                            var groupSql = GetFilterGroupSql(group, childsource.Columns);
-                            if (!string.IsNullOrEmpty(groupSql))
-                            {
-                                sql.Append(" AND " + groupSql);
-                            }
-                        }
-                    }
-                    if (sort != null && sort.ContainsKey(key) && sort[key].Count > 0)
-                    {
-                        sql.Append("\n ORDER BY ");
-                        for (var x = 0; x < sort[key].Count; x++)
-                        {
-                            //generate order by sql
-                            var orderby = sort[key][x];
-                            sql.Append("d." + orderby.Column +
-                                (orderby.Direction == Saber.Vendor.DataSource.OrderByDirection.Ascending ? " ASC" : " DESC") +
-                                (x < sort[key].Count - 1 ? ", \n" : "\n"));
-                        }
-                    }
                     else
                     {
-                        sql.Append("\n ORDER BY d.id");
+                        //for multi-select, just return all records in the table (for now, until I find a fix for this issue)
                     }
-                    var pos = positions != null && positions.ContainsKey(key) ? positions[key] :
-                        new Saber.Vendor.DataSource.PositionSettings() { Start = 1, Length = 1000 };
-                    if (pos.Start > 0)
+                    if(child.Type != Saber.Vendor.DataSource.RelationshipType.SingleSelection)
                     {
-                        sql.Append("\n OFFSET " + (pos.Start - 1) + " ROWS FETCH NEXT " + (parentPos.Length * pos.Length) + " ROWS ONLY");
+                        if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
+                        {
+                            for (var x = 0; x < filters[key].Count; x++)
+                            {
+                                //generate root filter group sql
+                                var group = filters[key][x];
+                                var groupSql = GetFilterGroupSql(group, childsource.Columns);
+                                if (!string.IsNullOrEmpty(groupSql))
+                                {
+                                    sql.Append(" AND " + groupSql);
+                                }
+                            }
+                        }
+                        if (sort != null && sort.ContainsKey(key) && sort[key].Count > 0)
+                        {
+                            sql.Append("\n ORDER BY ");
+                            for (var x = 0; x < sort[key].Count; x++)
+                            {
+                                //generate order by sql
+                                var orderby = sort[key][x];
+                                sql.Append("d." + orderby.Column +
+                                    (orderby.Direction == Saber.Vendor.DataSource.OrderByDirection.Ascending ? " ASC" : " DESC") +
+                                    (x < sort[key].Count - 1 ? ", \n" : "\n"));
+                            }
+                        }
+                        else
+                        {
+                            sql.Append("\n ORDER BY d.id");
+                        }
+                        var pos = positions != null && positions.ContainsKey(key) ? positions[key] :
+                            new Saber.Vendor.DataSource.PositionSettings() { Start = 1, Length = 1000 };
+                        if (pos.Start > 0)
+                        {
+                            sql.Append("\n OFFSET " + (pos.Start - 1) + " ROWS FETCH NEXT " + (parentPos.Length * pos.Length) + " ROWS ONLY");
+                        }
                     }
+                    
                     sql.Append("\n\n\n");
                     datasets.Add(dataset);
                 }
@@ -414,8 +407,8 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     var element = group.Elements[x];
                     var column = columns.Where(a => a.Name == element.Column).FirstOrDefault();
-                    if(element.Value == "#single-selection") { continue; }
-                    if(element.Column == "id")
+                    if(element.Value == "#single-selection" || element.Value == "#multi-selection") { continue; }
+                    if (element.Column == "id")
                     {
                         column = new Saber.Vendor.DataSource.Column()
                         {
