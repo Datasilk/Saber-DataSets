@@ -9,30 +9,7 @@ namespace Query
 {
     public static class DataSets
     {
-        public static int Create(string label, string partialview, string description, List<Models.DataSets.Column> columns, int? userId = null, bool userdata = false)
-        {
-            Saber.Vendors.DataSets.Cache.DataSets = null;
-            var list = new Models.DataSets.Columns()
-            {
-                Items = columns.ToArray()
-            };
-            return Sql.ExecuteScalar<int>("DataSet_Create", new { userId, userdata, label, partialview, description, columns = Common.Serializer.ToXmlDocument(list).OuterXml });
-        }
-
-        public static void UpdateColumns(int datasetId, List<Models.DataSets.Column> columns)
-        {
-            var list = new Models.DataSets.Columns()
-            {
-                Items = columns.ToArray()
-            };
-            Sql.ExecuteNonQuery("DataSet_UpdateColumns", new { datasetId, columns = Common.Serializer.ToXmlDocument(list).OuterXml });
-        }
-
-        public static List<Models.DataSet> GetList(int? userId = null, bool all = false, bool noadmin = false, string search = "")
-        {
-            return Sql.Populate<Models.DataSet>("DataSets_GetList", new { userId, all, noadmin, search });
-        }
-
+        
         public enum SearchType
         {
             any = 0,
@@ -42,13 +19,13 @@ namespace Query
         }
 
         #region "Filter"
-        public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string lang = "en", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null, List<Saber.Vendor.DataSource.OrderBy> sort = null)
+        public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string lang = "en", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null, List<Saber.Vendor.DataSource.OrderBy> sort = null, bool userEmail = false)
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources[datasetId];
             var dataset = Saber.Vendors.DataSets.Cache.DataSets[datasetId];
 
-            var sql = new StringBuilder(@"
-SELECT u.name AS username, u.email AS useremail, d.*
+            var sql = new StringBuilder(@"SELECT u.name AS username, " + 
+                (userEmail ? "u.email AS useremail" : "'' AS useremail") + @", d.*
 FROM [DataSet_" + dataset.tableName + @"] d
 LEFT JOIN Users u ON u.userId=d.userId
 WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
@@ -111,7 +88,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             return results;
         }
 
-        public static Dictionary<string, List<IDictionary<string, object>>> GetRecordsInRelationships(int datasetId, string lang = "en", int userId = 0, Dictionary<string, Saber.Vendor.DataSource.PositionSettings> positions = null, Dictionary<string, List<Saber.Vendor.DataSource.FilterGroup>> filters = null, Dictionary<string, List<Saber.Vendor.DataSource.OrderBy>> sort = null, string[] childKeys = null)
+        public static Dictionary<string, List<IDictionary<string, object>>> GetRecordsInRelationships(int datasetId, string lang = "en", int userId = 0, Dictionary<string, Saber.Vendor.DataSource.PositionSettings> positions = null, Dictionary<string, List<Saber.Vendor.DataSource.FilterGroup>> filters = null, Dictionary<string, List<Saber.Vendor.DataSource.OrderBy>> sort = null, string[] childKeys = null, bool userEmail = false)
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources[datasetId];
             if (datasource == null) { return null; }
@@ -122,8 +99,8 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             var tmpTable = "#datasets_records_in_relationships_" + rndId;
 
             //generate query for parent data set ///////////////////////////////////////////////////////////////////
-            var sql = new StringBuilder(@"
-SELECT u.name AS username, u.email AS useremail, d.*
+            var sql = new StringBuilder(@"SELECT u.name AS username, " + 
+                (userEmail ? "u.email AS useremail" : "'' AS useremail") + @", d.*
 INTO " + tmpTable + @"
 FROM [DataSet_" + dataset.tableName + @"] d
 LEFT JOIN Users u ON u.userId=d.userId
@@ -169,6 +146,10 @@ WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? "d.userId=" + us
             sql.Append("\n\n\n SELECT * FROM " + tmpTable);
             datasets.Add(dataset);
 
+            //TODO: Return all records from tmpTable, then get list of IDs from list component data
+            //where lists are single-selection or multi-selection lists before generating
+            //relationship queries so that we can get a very specific list of results from relationship tables
+
             foreach (var child in datasource.Relationships.Where(a => a.Key == keyId))
             {
                 //generate queries for child data sets ///////////////////////////////////////////////////////////////
@@ -178,9 +159,11 @@ WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? "d.userId=" + us
                 if(dataset != null)
                 {
                     var childsource = Saber.Vendors.DataSets.Cache.DataSources[childId];
-                    sql.Append(@"
-
-SELECT u.name AS username, u.email AS useremail, d.*
+                    sql.Append(@"SELECT " + 
+                        (child.Type == Saber.Vendor.DataSource.RelationshipType.MultiSelection ||
+                        child.Type == Saber.Vendor.DataSource.RelationshipType.FilteredList ?
+                        "TOP 500 " : "") + 
+                        @"u.name AS username, '' AS useremail, d.*
 FROM [DataSet_" + dataset.tableName + @"] d
 LEFT JOIN Users u ON u.userId=d.userId
 WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"'"); 
@@ -193,14 +176,16 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                     }
                     else if(child.Type == Saber.Vendor.DataSource.RelationshipType.SingleSelection)
                     {
+                        //NOTE: This is a temporary work-around
                         sql.Append(@"AND EXISTS(SELECT * FROM " + tmpTable + " WHERE [" + child.ChildColumn + "] " +
                             "LIKE '%selected=' + CAST(d.id AS varchar(16)))");
                     }
                     else
                     {
+                        //NOTE: This is a temporary work-around
                         //for multi-select, just return all records in the table (for now, until I find a fix for this issue)
                     }
-                    if(child.Type != Saber.Vendor.DataSource.RelationshipType.SingleSelection)
+                    if (child.Type != Saber.Vendor.DataSource.RelationshipType.SingleSelection)
                     {
                         if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
                         {
@@ -395,19 +380,17 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             }
             return results;
         }
-
-        #endregion
-
+        
         private static string GetFilterGroupSql(Saber.Vendor.DataSource.FilterGroup group, Saber.Vendor.DataSource.Column[] columns, string childColumn = "")
         {
             var sql = new StringBuilder();
-            if(group.Elements != null && group.Elements.Count > 0)
+            if (group.Elements != null && group.Elements.Count > 0)
             {
                 for (var x = 0; x < group.Elements.Count; x++)
                 {
                     var element = group.Elements[x];
                     var column = columns.Where(a => a.Name == element.Column).FirstOrDefault();
-                    if(element.Value == "#single-selection" || element.Value == "#multi-selection") { continue; }
+                    if (element.Value == "#single-selection" || element.Value == "#multi-selection") { continue; }
                     if (element.Column == "id")
                     {
                         column = new Saber.Vendor.DataSource.Column()
@@ -516,13 +499,13 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             }
                             break;
                     }
-                    if(x < group.Elements.Count - 1)
+                    if (x < group.Elements.Count - 1)
                     {
                         sql.Append(group.Match == Saber.Vendor.DataSource.GroupMatchType.All ? " AND " : " OR ");
                     }
                 }
             }
-            if(group.Groups != null)
+            if (group.Groups != null)
             {
                 foreach (var sub in group.Groups)
                 {
@@ -538,33 +521,37 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             return "";
         }
 
-        public static void AddRecord(int userId, int datasetId, string lang, List<Models.DataSets.Field> fields, int recordId = 0)
+        #endregion
+
+        #region "DataSets"
+        public static int Create(string label, string partialview, string description, List<Models.DataSets.Column> columns, int? userId = null, bool userdata = false)
         {
-            var list = new Models.DataSets.Fields()
+            Saber.Vendors.DataSets.Cache.DataSets = null;
+            var list = new Models.DataSets.Columns()
             {
-                Items = fields.ToArray()
+                Items = columns.ToArray()
             };
-            Sql.ExecuteNonQuery("DataSet_AddRecord", new { userId, datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
+            return Sql.ExecuteScalar<int>("DataSet_Create", new { userId, userdata, label, partialview, description, columns = Common.Serializer.ToXmlDocument(list).OuterXml });
         }
 
-        public static void UpdateRecord(int userId, int datasetId, int recordId, string lang, List<Models.DataSets.Field> fields)
+        public static void UpdateColumns(int datasetId, List<Models.DataSets.Column> columns)
         {
-            var list = new Models.DataSets.Fields()
+            var list = new Models.DataSets.Columns()
             {
-                Items = fields.ToArray()
+                Items = columns.ToArray()
             };
-            Sql.ExecuteNonQuery("DataSet_UpdateRecord", new { userId, datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
+            Sql.ExecuteNonQuery("DataSet_UpdateColumns", new { datasetId, columns = Common.Serializer.ToXmlDocument(list).OuterXml });
         }
 
-        public static void DeleteRecord(int datasetId, int recordId)
+        public static List<Models.DataSet> GetList(int? userId = null, bool all = false, bool noadmin = false, string search = "")
         {
-            Sql.ExecuteNonQuery("DataSet_DeleteRecord", new { datasetId, recordId});
+            return Sql.Populate<Models.DataSet>("DataSets_GetList", new { userId, all, noadmin, search });
         }
 
         public static Models.DataSet GetInfo(int datasetId)
         {
             var list = Sql.Populate<Models.DataSet>("DataSet_GetInfo", new { datasetId });
-            if(list.Count == 1)
+            if (list.Count == 1)
             {
                 return list.First();
             }
@@ -592,6 +579,34 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             Saber.Vendors.DataSets.Cache.DataSets = null;
             Sql.ExecuteNonQuery("DataSet_Delete", new { datasetId });
         }
+
+        #endregion
+
+        #region "Records"
+        public static void AddRecord(int userId, int datasetId, string lang, List<Models.DataSets.Field> fields, int recordId = 0)
+        {
+            var list = new Models.DataSets.Fields()
+            {
+                Items = fields.ToArray()
+            };
+            Sql.ExecuteNonQuery("DataSet_AddRecord", new { userId, datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
+        }
+
+        public static void UpdateRecord(int userId, int datasetId, int recordId, string lang, List<Models.DataSets.Field> fields)
+        {
+            var list = new Models.DataSets.Fields()
+            {
+                Items = fields.ToArray()
+            };
+            Sql.ExecuteNonQuery("DataSet_UpdateRecord", new { userId, datasetId, recordId, lang, fields = Common.Serializer.ToXmlDocument(list).OuterXml });
+        }
+
+        public static void DeleteRecord(int datasetId, int recordId)
+        {
+            Sql.ExecuteNonQuery("DataSet_DeleteRecord", new { datasetId, recordId });
+        }
+
+        #endregion
 
         #region "Relationships"
         public static class Relationships
