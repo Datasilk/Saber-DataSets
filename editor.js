@@ -409,8 +409,6 @@ S.editor.datasets = {
                 var popup = S.editor.fields.popup(partial, lang, 'Update Record for "' + name + '"', fieldslist, 'Update Record', (e, fields) => {
                     //pass content field data to dataset service
                     popup.find('button.apply').hide();
-                    //update content field values before saving
-                    S.editor.fields.presave();
                     //update record in database
                     S.ajax.post('Datasets/UpdateRecord', { datasetId: datasetId, recordId: recordId, lang: lang, fields: fields }, (response) => {
                         S.popup.hide();
