@@ -99,12 +99,9 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             var tmpTable = "#datasets_records_in_relationships_" + rndId;
 
             //generate query for parent data set ///////////////////////////////////////////////////////////////////
-            var sql = new StringBuilder(@"SELECT u.name AS username, " + 
-                (userEmail ? "u.email AS useremail" : "'' AS useremail") + @", d.*
-INTO " + tmpTable + @"
-FROM [DataSet_" + dataset.tableName + @"] d
-LEFT JOIN Users u ON u.userId=d.userId
-WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
+            var sqlSelect = "";
+            var sql = new StringBuilder("WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? 
+                "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
 
             var key = "dataset-" + datasetId.ToString();
             var keyId = datasetId.ToString();
@@ -123,7 +120,7 @@ WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? "d.userId=" + us
             }
             if (sort != null && sort.ContainsKey(key) && sort[key].Count > 0)
             {
-                sql.Append("\n ORDER BY "); 
+                sql.Append("\nORDER BY "); 
                 for (var x = 0; x < sort[key].Count; x++)
                 {
                     //generate order by sql
@@ -135,20 +132,92 @@ WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? "d.userId=" + us
             }
             else
             {
-                sql.Append("\n ORDER BY d.id");
+                sql.Append("\nORDER BY d.id");
             }
             var parentPos = positions != null && positions.ContainsKey(key) ? positions[key] :
                 new Saber.Vendor.DataSource.PositionSettings() { Start = 1, Length = 10 };
             if (parentPos.Start > 0)
             {
-                sql.Append("\n OFFSET " + (parentPos.Start - 1) + " ROWS FETCH NEXT " + parentPos.Length + " ROWS ONLY");
+                sql.Append("\nOFFSET " + (parentPos.Start - 1) + " ROWS FETCH NEXT " + parentPos.Length + " ROWS ONLY");
             }
-            sql.Append("\n\n\n SELECT * FROM " + tmpTable);
+            sql.Append("\n\n\n");
             datasets.Add(dataset);
 
             //TODO: Return all records from tmpTable, then get list of IDs from list component data
             //where lists are single-selection or multi-selection lists before generating
             //relationship queries so that we can get a very specific list of results from relationship tables
+            var relationshipIds = new Dictionary<string, List<string>>();
+            var selectLists = datasource.Relationships.Where(a => a.Type == Saber.Vendor.DataSource.RelationshipType.SingleSelection || a.Type == Saber.Vendor.DataSource.RelationshipType.MultiSelection);
+            if (selectLists.Count() > 0)
+            {
+                //get first result set so that we can collect a list of IDs to get for our relationship tables
+                try
+                {
+                    //only select columns related to single/multi-select lists
+                    sqlSelect = @"SELECT " + (string.Join(", ", selectLists.Select(a => "d." + a.ListComponent))) + @"
+FROM [DataSet_" + dataset.tableName + @"] d
+LEFT JOIN Users u ON u.userId=d.userId
+";
+                    var conn = new SqlConnection(Sql.ConnectionString);
+                    var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
+                    var reader = server.ConnectionContext.ExecuteReader(sqlSelect + sql.ToString());
+                    try
+                    {
+                        var columns = reader.GetColumnSchema();
+                        
+                        //get all rows for result
+                        while (reader.Read())
+                        {
+                            var row = new Dictionary<string, object>();
+                            foreach (var column in columns)
+                            {
+                                row.Add(column.ColumnName, reader[column.ColumnName]);
+                            }
+
+                            //find all single-selection & multi-selection relationship lists and collect IDs
+                            foreach(var list in selectLists)
+                            {
+                                var col = row.ContainsKey(list.ListComponent) ? (string)row[list.ListComponent] : "";
+                                if (!string.IsNullOrEmpty(col))
+                                {
+                                    var parts = col.Split("|!|");
+                                    var part = parts.Where(a => a.StartsWith("selected=")).FirstOrDefault()?.Split("selected=")[1] ?? "";
+                                    if (!string.IsNullOrEmpty(part))
+                                    {
+                                        if (!relationshipIds.ContainsKey(list.Child.Key))
+                                        {
+                                            relationshipIds.Add(list.Child.Key, new List<string>(part.Split(",", StringSplitOptions.RemoveEmptyEntries & StringSplitOptions.TrimEntries)));
+                                        }
+                                        else
+                                        {
+                                            var add = part.Split(",", StringSplitOptions.RemoveEmptyEntries & StringSplitOptions.TrimEntries).Where(a => !relationshipIds[list.Child.Key].Contains(a));
+                                            if (add.Count() > 0)
+                                            {
+                                                relationshipIds[list.Child.Key].AddRange(add);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new Exception(ex.Message, ex);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(ex.Message + "\n\n" + sql.ToString() + "\n\n", ex);
+                }
+            }
+            sqlSelect = "SELECT u.name AS username, " +
+                (userEmail ? "u.email AS useremail" : "'' AS useremail") + @", d.*
+INTO " + tmpTable + @"
+FROM [DataSet_" + dataset.tableName + @"] d
+LEFT JOIN Users u ON u.userId=d.userId
+";
+            sql.Append("SELECT * FROM " + tmpTable + "\n\n\n");
 
             foreach (var child in datasource.Relationships.Where(a => a.Key == keyId))
             {
@@ -159,31 +228,23 @@ WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? "d.userId=" + us
                 if(dataset != null)
                 {
                     var childsource = Saber.Vendors.DataSets.Cache.DataSources[childId];
-                    sql.Append(@"SELECT " + 
-                        (child.Type == Saber.Vendor.DataSource.RelationshipType.MultiSelection ||
-                        child.Type == Saber.Vendor.DataSource.RelationshipType.FilteredList ?
-                        "TOP 500 " : "") + 
-                        @"u.name AS username, '' AS useremail, d.*
+                    sql.Append(@"SELECT u.name AS username, '' AS useremail, d.*
 FROM [DataSet_" + dataset.tableName + @"] d
 LEFT JOIN Users u ON u.userId=d.userId
-WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + @"'"); 
+WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "'"); 
 
                     //make sure no-relationship doesn't exist in the filters
                     key = "dataset-" + childId.ToString();
                     if(child.Type != Saber.Vendor.DataSource.RelationshipType.SingleSelection && child.Type != Saber.Vendor.DataSource.RelationshipType.FilteredList)
                     {
-                        sql.Append(@"AND d.[" + child.ChildColumn + @"] IN (SELECT id FROM " + tmpTable + ")");
+                        sql.Append("AND d.[" + child.ChildColumn + @"] IN (SELECT id FROM " + tmpTable + ")");
                     }
-                    else if(child.Type == Saber.Vendor.DataSource.RelationshipType.SingleSelection)
+                    else if((child.Type == Saber.Vendor.DataSource.RelationshipType.SingleSelection || 
+                        child.Type == Saber.Vendor.DataSource.RelationshipType.MultiSelection) &&
+                        relationshipIds.ContainsKey(child.Child.Key))
                     {
-                        //NOTE: This is a temporary work-around
-                        sql.Append(@"AND EXISTS(SELECT * FROM " + tmpTable + " WHERE [" + child.ChildColumn + "] " +
-                            "LIKE '%selected=' + CAST(d.id AS varchar(16)))");
-                    }
-                    else
-                    {
-                        //NOTE: This is a temporary work-around
-                        //for multi-select, just return all records in the table (for now, until I find a fix for this issue)
+                        //Get specific records based on collected IDs from single/multi-select lists
+                        sql.Append("AND d.Id IN (" + string.Join(",", relationshipIds[child.Child.Key]) + ")");
                     }
                     if (child.Type != Saber.Vendor.DataSource.RelationshipType.SingleSelection)
                     {
@@ -236,7 +297,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             {
                 var conn = new SqlConnection(Sql.ConnectionString);
                 var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
-                var reader = server.ConnectionContext.ExecuteReader(sql.ToString());
+                var reader = server.ConnectionContext.ExecuteReader(sqlSelect + sql.ToString());
                 var i = 0;
                 //read query results
                 do

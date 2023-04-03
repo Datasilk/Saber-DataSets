@@ -546,6 +546,9 @@ namespace Saber.Vendors.DataSets
                     if (relationship.listType == 0 && !parts.Contains("single"))
                     {
                         parts.Add("single");
+                    }else if (relationship.listType == 3 && !parts.Contains("multi"))
+                    {
+                        parts.Add("multi");
                     }
                     if (!parts.Contains("add") && data != null && data.Count > 0 && relationship.listType == 2)
                     {

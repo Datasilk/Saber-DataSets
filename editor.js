@@ -476,7 +476,7 @@ S.ajax.post('Datasets/GetPermissions', {}, (response) => {
     sec.delete = bools[2];
     sec.view = bools[3];
     sec.adddata = bools[4];
-    S.editor.datasets.security = sec;
+    S.editor.datasets.security = sec; 
 
     if (sec.create == true) {
         //add menu item to create new data set
