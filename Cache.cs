@@ -37,7 +37,7 @@ namespace Saber.Vendors.DataSets
                                     ChildColumn = a.childColumn,
                                     ListComponent = a.parentList,
                                     ParentTable = a.parentTableName,
-                                    Type = a.listType == 0 ? DataSource.RelationshipType.SingleSelection : DataSource.RelationshipType.FilteredList
+                                    Type = (DataSource.RelationshipType)a.listType
                                 }).ToArray()
                             });
                         }

@@ -67,18 +67,22 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             var results = new List<IDictionary<string, object>>();
             try
             {
-                var conn = new SqlConnection(Sql.ConnectionString);
-                var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
-                var reader = server.ConnectionContext.ExecuteReader(sql.ToString());
-                var columns = reader.GetColumnSchema();
-                while (reader.Read())
+                using (var conn = new SqlConnection(Sql.ConnectionString))
                 {
-                    var row = new Dictionary<string, object>();
-                    foreach (var column in columns)
+                    var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
+                    using (var reader = server.ConnectionContext.ExecuteReader(sql.ToString()))
                     {
-                        row.Add(column.ColumnName, reader[column.ColumnName]);
+                        var columns = reader.GetColumnSchema();
+                        while (reader.Read())
+                        {
+                            var row = new Dictionary<string, object>();
+                            foreach (var column in columns)
+                            {
+                                row.Add(column.ColumnName, reader[column.ColumnName]);
+                            }
+                            results.Add(row);
+                        }
                     }
-                    results.Add(row);
                 }
             }
             catch (Exception ex)
@@ -158,52 +162,56 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
 FROM [DataSet_" + dataset.tableName + @"] d
 LEFT JOIN Users u ON u.userId=d.userId
 ";
-                    var conn = new SqlConnection(Sql.ConnectionString);
-                    var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
-                    var reader = server.ConnectionContext.ExecuteReader(sqlSelect + sql.ToString());
-                    try
+                    using (var conn = new SqlConnection(Sql.ConnectionString))
                     {
-                        var columns = reader.GetColumnSchema();
-                        
-                        //get all rows for result
-                        while (reader.Read())
+                        var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
+                        using (var reader = server.ConnectionContext.ExecuteReader(sqlSelect + sql.ToString()))
                         {
-                            var row = new Dictionary<string, object>();
-                            foreach (var column in columns)
+                            try
                             {
-                                row.Add(column.ColumnName, reader[column.ColumnName]);
-                            }
+                                var columns = reader.GetColumnSchema();
 
-                            //find all single-selection & multi-selection relationship lists and collect IDs
-                            foreach(var list in selectLists)
-                            {
-                                var col = row.ContainsKey(list.ListComponent) ? (string)row[list.ListComponent] : "";
-                                if (!string.IsNullOrEmpty(col))
+                                //get all rows for result
+                                while (reader.Read())
                                 {
-                                    var parts = col.Split("|!|");
-                                    var part = parts.Where(a => a.StartsWith("selected=")).FirstOrDefault()?.Split("selected=")[1] ?? "";
-                                    if (!string.IsNullOrEmpty(part))
+                                    var row = new Dictionary<string, object>();
+                                    foreach (var column in columns)
                                     {
-                                        if (!relationshipIds.ContainsKey(list.Child.Key))
+                                        row.Add(column.ColumnName, reader[column.ColumnName]);
+                                    }
+
+                                    //find all single-selection & multi-selection relationship lists and collect IDs
+                                    foreach (var list in selectLists)
+                                    {
+                                        var col = row.ContainsKey(list.ListComponent) ? (string)row[list.ListComponent] : "";
+                                        if (!string.IsNullOrEmpty(col))
                                         {
-                                            relationshipIds.Add(list.Child.Key, new List<string>(part.Split(",", StringSplitOptions.RemoveEmptyEntries & StringSplitOptions.TrimEntries)));
-                                        }
-                                        else
-                                        {
-                                            var add = part.Split(",", StringSplitOptions.RemoveEmptyEntries & StringSplitOptions.TrimEntries).Where(a => !relationshipIds[list.Child.Key].Contains(a));
-                                            if (add.Count() > 0)
+                                            var parts = col.Split("|!|");
+                                            var part = parts.Where(a => a.StartsWith("selected=")).FirstOrDefault()?.Split("selected=")[1] ?? "";
+                                            if (!string.IsNullOrEmpty(part))
                                             {
-                                                relationshipIds[list.Child.Key].AddRange(add);
+                                                if (!relationshipIds.ContainsKey(list.Child.Key))
+                                                {
+                                                    relationshipIds.Add(list.Child.Key, new List<string>(part.Split(",", StringSplitOptions.RemoveEmptyEntries & StringSplitOptions.TrimEntries)));
+                                                }
+                                                else
+                                                {
+                                                    var add = part.Split(",", StringSplitOptions.RemoveEmptyEntries & StringSplitOptions.TrimEntries).Where(a => !relationshipIds[list.Child.Key].Contains(a));
+                                                    if (add.Count() > 0)
+                                                    {
+                                                        relationshipIds[list.Child.Key].AddRange(add);
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
+                            catch (Exception ex)
+                            {
+                                throw new Exception(ex.Message, ex);
+                            }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new Exception(ex.Message, ex);
                     }
                 }
                 catch (Exception ex)
@@ -295,37 +303,41 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             var results = new Dictionary<string, List<IDictionary<string, object>>>();
             try
             {
-                var conn = new SqlConnection(Sql.ConnectionString);
-                var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
-                var reader = server.ConnectionContext.ExecuteReader(sqlSelect + sql.ToString());
-                var i = 0;
-                //read query results
-                do
+                using (var conn = new SqlConnection(Sql.ConnectionString))
                 {
-                    try
+                    var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
+                    using (var reader = server.ConnectionContext.ExecuteReader(sqlSelect + sql.ToString()))
                     {
-                        dataset = datasets[i];
-                        var columns = reader.GetColumnSchema();
-                        var result = new List<IDictionary<string, object>>();
-                        //get all rows for result
-                        while (reader.Read())
+                        var i = 0;
+                        //read query results
+                        do
                         {
-                            var row = new Dictionary<string, object>();
-                            foreach (var column in columns)
+                            try
                             {
-                                row.Add(column.ColumnName, reader[column.ColumnName]);
+                                dataset = datasets[i];
+                                var columns = reader.GetColumnSchema();
+                                var result = new List<IDictionary<string, object>>();
+                                //get all rows for result
+                                while (reader.Read())
+                                {
+                                    var row = new Dictionary<string, object>();
+                                    foreach (var column in columns)
+                                    {
+                                        row.Add(column.ColumnName, reader[column.ColumnName]);
+                                    }
+                                    result.Add(row);
+                                }
+                                results.Add(dataset.datasetId.ToString(), result);
                             }
-                            result.Add(row);
-                        }
-                        results.Add(dataset.datasetId.ToString(), result);
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new Exception(ex.Message, ex);
-                    }
+                            catch (Exception ex)
+                            {
+                                throw new Exception(ex.Message, ex);
+                            }
 
-                    i++;
-                } while (reader.NextResult());
+                            i++;
+                        } while (reader.NextResult());
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -363,17 +375,22 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
 
             try
             {
-                var conn = new SqlConnection(Sql.ConnectionString);
-                var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
-                var reader = server.ConnectionContext.ExecuteReader(sql.ToString());
-                reader.Read();
-                return (int)reader[0];
+                int result = 0;
+                using (var conn = new SqlConnection(Sql.ConnectionString))
+                {
+                    var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
+                    using (var reader = server.ConnectionContext.ExecuteReader(sql.ToString()))
+                    {
+                        reader.Read();
+                        result = (int)reader[0];
+                    }
+                }
+                return result;
             }
             catch(Exception ex)
             {
                 throw new Exception(ex.Message + "\n\n" + sql.ToString() + "\n\n", ex);
             }
-            return 0;
         }
 
         public static Dictionary<string, int> GetRecordCountInRelationships(int datasetId, string lang = "en", int userId = 0, Dictionary<string, List<Saber.Vendor.DataSource.FilterGroup>> filters = null, string[] childKeys = null)
@@ -413,27 +430,31 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             var results = new Dictionary<string, int>();
             try
             {
-                var conn = new SqlConnection(Sql.ConnectionString);
-                var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
-                var reader = server.ConnectionContext.ExecuteReader(sql.ToString());
-                var i = 0;
-                //read query results
-                do
+                using (var conn = new SqlConnection(Sql.ConnectionString))
                 {
-                    try
+                    var server = new Microsoft.SqlServer.Management.Smo.Server(new ServerConnection(conn));
+                    using (var reader = server.ConnectionContext.ExecuteReader(sql.ToString()))
                     {
-                        dataset = datasets[i];
-                        //get all rows for result
-                        reader.Read();
-                        results.Add(dataset.datasetId.ToString(), (int)reader[0]);
-                    }
-                    catch (Exception)
-                    {
-                        results.Add(dataset.datasetId.ToString(), 0);
-                    }
+                        var i = 0;
+                        //read query results
+                        do
+                        {
+                            try
+                            {
+                                dataset = datasets[i];
+                                //get all rows for result
+                                reader.Read();
+                                results.Add(dataset.datasetId.ToString(), (int)reader[0]);
+                            }
+                            catch (Exception)
+                            {
+                                results.Add(dataset.datasetId.ToString(), 0);
+                            }
 
-                    i++;
-                } while (reader.NextResult());
+                            i++;
+                        } while (reader.NextResult());
+                    }
+                }
             }
             catch (Exception ex)
             {
