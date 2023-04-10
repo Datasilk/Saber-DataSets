@@ -129,7 +129,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate order by sql
                     var orderby = sort[key][x];
-                    sql.Append("d." + orderby.Column +
+                    sql.Append("d.[" + orderby.Column + "]" +
                         (orderby.Direction == Saber.Vendor.DataSource.OrderByDirection.Ascending ? " ASC" : " DESC") +
                         (x < sort[key].Count - 1 ? ", \n" : "\n"));
                 }
@@ -158,7 +158,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 try
                 {
                     //only select columns related to single/multi-select lists
-                    sqlSelect = @"SELECT " + (string.Join(", ", selectLists.Select(a => "d." + a.ListComponent))) + @"
+                    sqlSelect = @"SELECT " + (string.Join(", ", selectLists.Select(a => "d.[" + a.ListComponent + "]"))) + @"
 FROM [DataSet_" + dataset.tableName + @"] d
 LEFT JOIN Users u ON u.userId=d.userId
 ";
@@ -216,7 +216,7 @@ LEFT JOIN Users u ON u.userId=d.userId
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception(ex.Message + "\n\n" + sql.ToString() + "\n\n", ex);
+                    throw new Exception(ex.Message + "\n\n" + sqlSelect + sql.ToString() + "\n\n", ex);
                 }
             }
             sqlSelect = "SELECT u.name AS username, " +
@@ -243,7 +243,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
 
                     //make sure no-relationship doesn't exist in the filters
                     key = "dataset-" + childId.ToString();
-                    if(child.Type != Saber.Vendor.DataSource.RelationshipType.SingleSelection && child.Type != Saber.Vendor.DataSource.RelationshipType.FilteredList)
+                    if(child.Type == Saber.Vendor.DataSource.RelationshipType.RelatedList)
                     {
                         sql.Append("AND d.[" + child.ChildColumn + @"] IN (SELECT id FROM " + tmpTable + ")");
                     }
@@ -341,7 +341,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.Message + "\n\n" + sql.ToString() + "\n\n", ex);
+                throw new Exception(ex.Message + "\n\n" + sqlSelect + sql.ToString() + "\n\n", ex);
             }
             return results;
         }

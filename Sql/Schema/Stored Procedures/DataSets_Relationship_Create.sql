@@ -7,6 +7,9 @@ CREATE PROCEDURE [dbo].[DataSets_Relationship_Create]
 	@parentList nvarchar(32),
 	@listtype INT
 AS
+	--first remove childColumn if neccessary
+	IF @listtype <> 2 SET @childColumn = ''
+
 	IF EXISTS(SELECT * FROM Datasets_Relationships WHERE parentId=@parentId AND childId=@childId) BEGIN
 		DELETE FROM Datasets_Relationships WHERE parentId=@parentId AND childId=@childId
 	END
