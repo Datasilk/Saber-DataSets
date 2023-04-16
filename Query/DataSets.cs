@@ -36,7 +36,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns);
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns, userId);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -115,7 +115,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[key][x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns);
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns, userId);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -262,7 +262,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             {
                                 //generate root filter group sql
                                 var group = filters[key][x];
-                                var groupSql = GetFilterGroupSql(group, childsource.Columns);
+                                var groupSql = GetFilterGroupSql(group, childsource.Columns, userId);
                                 if (!string.IsNullOrEmpty(groupSql))
                                 {
                                     sql.Append(" AND " + groupSql);
@@ -365,7 +365,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns);
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns, userId);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -418,7 +418,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[key][x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns);
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns, userId);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -463,7 +463,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             return results;
         }
         
-        private static string GetFilterGroupSql(Saber.Vendor.DataSource.FilterGroup group, Saber.Vendor.DataSource.Column[] columns, string childColumn = "")
+        private static string GetFilterGroupSql(Saber.Vendor.DataSource.FilterGroup group, Saber.Vendor.DataSource.Column[] columns, int userId)
         {
             var sql = new StringBuilder();
             if (group.Elements != null && group.Elements.Count > 0)
@@ -472,6 +472,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     var element = group.Elements[x];
                     var column = columns.Where(a => a.Name == element.Column).FirstOrDefault();
+                    var appended = false;
                     if (element.Value == "#single-selection" || element.Value == "#multi-selection") { continue; }
                     if (element.Column == "id")
                     {
@@ -488,6 +489,14 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             Name = "userId",
                             DataType = Saber.Vendor.DataSource.DataType.Number
                         };
+                        switch (element.Value.ToLower())
+                        {
+                            case "{{userid}}":
+                                //replace value with current user ID
+                                sql.Append("userId = " + userId + "\n");
+                                appended = true;
+                                break;
+                        }
                     }
                     else if (element.Column == "lang")
                     {
@@ -513,7 +522,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             DataType = Saber.Vendor.DataSource.DataType.DateTime
                         };
                     }
-                    if (column == null) { continue; }
+                    if (column == null || appended == true) { continue; }
                     var colname = "[" + column.Name + "]";
                     switch (column.DataType)
                     {
@@ -555,7 +564,8 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             }
                             break;
                         case Saber.Vendor.DataSource.DataType.Boolean:
-                            sql.Append(colname + " = " + element.Value + "\n");
+                            var boolval = element.Value == "1" || element.Value.ToLower() == "true";
+                            sql.Append(colname + " = " + boolval + "\n");
                             break;
                         case Saber.Vendor.DataSource.DataType.DateTime:
                             var datetime = DateTime.Parse(element.Value);
@@ -592,13 +602,12 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 foreach (var sub in group.Groups)
                 {
                     sql.Append(group.Match == Saber.Vendor.DataSource.GroupMatchType.All ? " AND " : " OR ");
-                    sql.Append(GetFilterGroupSql(sub, columns));
+                    sql.Append(GetFilterGroupSql(sub, columns, userId));
                 }
             }
             if (sql.Length > 0)
             {
-                sql.Append(")\n");
-                return "( \n" + sql.ToString();
+                return "( \n" + sql.ToString() + ")\n";
             }
             return "";
         }
