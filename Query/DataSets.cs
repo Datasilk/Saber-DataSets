@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.Data.SqlClient;
 using Microsoft.SqlServer.Management.Common;
+using Saber.Core;
 
 namespace Query
 {
@@ -19,7 +20,7 @@ namespace Query
         }
 
         #region "Filter"
-        public static List<IDictionary<string, object>> GetRecords(int datasetId, int start = 1, int length = 50, string lang = "en", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null, List<Saber.Vendor.DataSource.OrderBy> sort = null, bool userEmail = false)
+        public static List<IDictionary<string, object>> GetRecords(IRequest request, int datasetId, int start = 1, int length = 50, string lang = "en", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null, List<Saber.Vendor.DataSource.OrderBy> sort = null, bool userEmail = false)
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources[datasetId];
             var dataset = Saber.Vendors.DataSets.Cache.DataSets[datasetId];
@@ -36,7 +37,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns, userId);
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns, request.User.UserId);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -92,7 +93,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             return results;
         }
 
-        public static Dictionary<string, List<IDictionary<string, object>>> GetRecordsInRelationships(int datasetId, string lang = "en", int userId = 0, Dictionary<string, Saber.Vendor.DataSource.PositionSettings> positions = null, Dictionary<string, List<Saber.Vendor.DataSource.FilterGroup>> filters = null, Dictionary<string, List<Saber.Vendor.DataSource.OrderBy>> sort = null, string[] childKeys = null, bool userEmail = false)
+        public static Dictionary<string, List<IDictionary<string, object>>> GetRecordsInRelationships(IRequest request, int datasetId, string lang = "en", int userId = 0, Dictionary<string, Saber.Vendor.DataSource.PositionSettings> positions = null, Dictionary<string, List<Saber.Vendor.DataSource.FilterGroup>> filters = null, Dictionary<string, List<Saber.Vendor.DataSource.OrderBy>> sort = null, string[] childKeys = null, bool userEmail = false)
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources[datasetId];
             if (datasource == null) { return null; }
@@ -115,7 +116,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[key][x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns, userId);
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns, request.User.UserId);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -262,7 +263,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             {
                                 //generate root filter group sql
                                 var group = filters[key][x];
-                                var groupSql = GetFilterGroupSql(group, childsource.Columns, userId);
+                                var groupSql = GetFilterGroupSql(group, childsource.Columns, request.User.UserId);
                                 if (!string.IsNullOrEmpty(groupSql))
                                 {
                                     sql.Append(" AND " + groupSql);
@@ -346,7 +347,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             return results;
         }
 
-        public static int GetRecordCount(int datasetId, string lang = "en", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null)
+        public static int GetRecordCount(IRequest request, int datasetId, string lang = "en", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null)
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources[datasetId];
             if (datasource == null) { return 0; }
@@ -365,7 +366,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns, userId);
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns, request.User.UserId);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -393,7 +394,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             }
         }
 
-        public static Dictionary<string, int> GetRecordCountInRelationships(int datasetId, string lang = "en", int userId = 0, Dictionary<string, List<Saber.Vendor.DataSource.FilterGroup>> filters = null, string[] childKeys = null)
+        public static Dictionary<string, int> GetRecordCountInRelationships(IRequest request, int datasetId, string lang = "en", int userId = 0, Dictionary<string, List<Saber.Vendor.DataSource.FilterGroup>> filters = null, string[] childKeys = null)
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources[datasetId];
             if (datasource == null) { return null; }
@@ -418,7 +419,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[key][x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns, userId);
+                    var groupSql = GetFilterGroupSql(group, datasource.Columns, request.User.UserId);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -493,7 +494,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                         {
                             case "{{userid}}":
                                 //replace value with current user ID
-                                sql.Append("userId = " + userId + "\n");
+                                sql.Append("d.[userId] = " + userId + "\n");
                                 appended = true;
                                 break;
                         }
@@ -523,7 +524,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                         };
                     }
                     if (column == null || appended == true) { continue; }
-                    var colname = "[" + column.Name + "]";
+                    var colname = "d.[" + column.Name + "]";
                     switch (column.DataType)
                     {
                         case Saber.Vendor.DataSource.DataType.Text:

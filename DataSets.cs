@@ -266,7 +266,7 @@ namespace Saber.Vendors.DataSets
             if (dataset.userdata) { view.Show("has-userdata"); }
 
             //load list of records
-            var data = Query.DataSets.GetRecords(datasetId, start, length, lang, User.UserId, filters, sort);
+            var data = Query.DataSets.GetRecords(this, datasetId, start, length, lang, User.UserId, filters, sort);
             if (data.Count > 0)
             {
                 //generate table header
@@ -437,7 +437,7 @@ namespace Saber.Vendors.DataSets
         {
             if (IsPublicApiRequest || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not own this dataset"); }
-            var record = Query.DataSets.GetRecords(datasetId, 1, 1, lang, User.UserId, new List<DataSource.FilterGroup>()
+            var record = Query.DataSets.GetRecords(this, datasetId, 1, 1, lang, User.UserId, new List<DataSource.FilterGroup>()
             {
                 new DataSource.FilterGroup()
                 {
@@ -457,7 +457,7 @@ namespace Saber.Vendors.DataSets
             if(record == null && lang != "en")
             {
                 //try to get record in English if one doesn't exist in the selected language
-                record = Query.DataSets.GetRecords(datasetId, 1, 1, "en", User.UserId).FirstOrDefault();
+                record = Query.DataSets.GetRecords(this, datasetId, 1, 1, "en", User.UserId).FirstOrDefault();
             }
             if(record != null)
             {

@@ -53,7 +53,7 @@ namespace Saber.Vendors.DataSets
             //get filtered records from a data set
             var datasetId = int.Parse(key);
             var dataset = Cache.DataSets[datasetId];
-            var results = Query.DataSets.GetRecords(datasetId, start, length, lang, dataset.userdata ? request.User.UserId : 0, filters, orderBy)?
+            var results = Query.DataSets.GetRecords(request, datasetId, start, length, lang, dataset.userdata ? request.User.UserId : 0, filters, orderBy)?
                 .Select(a => a.ToDictionary(k => k.Key, v => v.Value?.ToString() ?? ""));
             if(results == null)
             {
@@ -66,7 +66,7 @@ namespace Saber.Vendors.DataSets
         {
             var datasetId = int.Parse(key);
             var dataset = Cache.DataSets[datasetId];
-            return Query.DataSets.GetRecordsInRelationships(datasetId, lang, dataset.userdata ? request.User.UserId : 0, positions, filters, orderBy, childKeys)?
+            return Query.DataSets.GetRecordsInRelationships(request, datasetId, lang, dataset.userdata ? request.User.UserId : 0, positions, filters, orderBy, childKeys)?
                 .ToDictionary(a => a.Key, a =>
                 {
                     return new List<Dictionary<string, string>>(a.Value.Select(b =>
@@ -84,14 +84,14 @@ namespace Saber.Vendors.DataSets
         {
             var datasetId = int.Parse(key);
             var dataset = Cache.DataSets[datasetId];
-            return Query.DataSets.GetRecordCount(datasetId, lang, dataset.userdata ? request.User.UserId : 0, filter);
+            return Query.DataSets.GetRecordCount(request, datasetId, lang, dataset.userdata ? request.User.UserId : 0, filter);
         }
 
         Dictionary<string, int> IVendorDataSources.FilterTotal(IRequest request, string key, string lang, Dictionary<string, List<DataSource.FilterGroup>> filters, string[] childKeys)
         {
             var datasetId = int.Parse(key);
             var dataset = Cache.DataSets[datasetId];
-            return Query.DataSets.GetRecordCountInRelationships(datasetId, lang, dataset.userdata ? request.User.UserId : 0, filters, childKeys);
+            return Query.DataSets.GetRecordCountInRelationships(request, datasetId, lang, dataset.userdata ? request.User.UserId : 0, filters, childKeys);
         }
     }
 }
