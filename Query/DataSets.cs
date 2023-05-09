@@ -242,7 +242,6 @@ FROM [DataSet_" + dataset.tableName + @"] d
 LEFT JOIN Users u ON u.userId=d.userId
 WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "'"); 
 
-                    //make sure no-relationship doesn't exist in the filters
                     key = "dataset-" + childId.ToString();
                     if(child.Type == Saber.Vendor.DataSource.RelationshipType.RelatedList)
                     {
@@ -472,10 +471,16 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 for (var x = 0; x < group.Elements.Count; x++)
                 {
                     var element = group.Elements[x];
-                    var column = columns.Where(a => a.Name == element.Column).FirstOrDefault();
+                    var col = element.Column;
+                    var colparts = col.Split(".");
+                    if(colparts.Length > 1)
+                    {
+                        return "";
+                    }
+                    var column = columns.Where(a => a.Name == col).FirstOrDefault();
                     var appended = false;
                     if (element.Value == "#single-selection" || element.Value == "#multi-selection") { continue; }
-                    if (element.Column == "id")
+                    if (col == "id")
                     {
                         column = new Saber.Vendor.DataSource.Column()
                         {
@@ -483,7 +488,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             DataType = Saber.Vendor.DataSource.DataType.Number
                         };
                     }
-                    else if (element.Column.ToLower() == "userid")
+                    else if (col.ToLower() == "userid")
                     {
                         column = new Saber.Vendor.DataSource.Column()
                         {
@@ -499,7 +504,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                                 break;
                         }
                     }
-                    else if (element.Column == "lang")
+                    else if (col == "lang")
                     {
                         column = new Saber.Vendor.DataSource.Column()
                         {
@@ -507,7 +512,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             DataType = Saber.Vendor.DataSource.DataType.Text
                         };
                     }
-                    else if (element.Column == "datecreated")
+                    else if (col == "datecreated")
                     {
                         column = new Saber.Vendor.DataSource.Column()
                         {
@@ -515,7 +520,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             DataType = Saber.Vendor.DataSource.DataType.DateTime
                         };
                     }
-                    else if (element.Column == "datemodified")
+                    else if (col == "datemodified")
                     {
                         column = new Saber.Vendor.DataSource.Column()
                         {
