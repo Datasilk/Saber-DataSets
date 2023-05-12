@@ -7,7 +7,7 @@ Generate Install.sql
 */
 
 gulp.task('install', function () {
-    return gulp.src(['**/Tables/*.sql', '**/Sequences/*.sql', '**/*.sql', '*.sql', '!install.sql', '!migrate-*.sql', '!uninstall.sql'], { base: '.' })
+    return gulp.src(['**/Tables/*.sql', '**/Sequences/*.sql', '**/Functions/*.sql', '**/*.sql', '*.sql', '!install.sql', '!migrate-*.sql', '!uninstall.sql'], { base: '.' })
         .pipe(concat('install.sql', {
             sep:
                 '\n/* ////////////////////////////////////////////////////////////////////////////////////// */\n\n' +

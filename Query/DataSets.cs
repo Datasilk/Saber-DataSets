@@ -23,6 +23,7 @@ namespace Query
         public static List<IDictionary<string, object>> GetRecords(IRequest request, int datasetId, int start = 1, int length = 50, string lang = "en", int userId = 0, List<Saber.Vendor.DataSource.FilterGroup> filters = null, List<Saber.Vendor.DataSource.OrderBy> sort = null, bool userEmail = false)
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources[datasetId];
+            var info = Vendors.DataSources.FirstOrDefault(a => a.Key == "dataset-" + datasource.Key);
             var dataset = Saber.Vendors.DataSets.Cache.DataSets[datasetId];
 
             var sql = new StringBuilder(@"SELECT u.name AS username, " + 
@@ -37,7 +38,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns, request.User.UserId);
+                    var groupSql = GetFilterGroupSql(group, info, datasource, dataset, request);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -97,64 +98,21 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources[datasetId];
             if (datasource == null) { return null; }
+            var info = Vendors.DataSources.FirstOrDefault(a => a.Key == "dataset-" + datasource.Key);
+            if(info == null) { return null; }
             var dataset = Saber.Vendors.DataSets.Cache.DataSets[datasetId];
             if (dataset == null) { return null; }
             var datasets = new List<Models.DataSet>();
             var rndId = (new Random()).Next(999, 999999);
             var tmpTable = "#datasets_records_in_relationships_" + rndId;
-
-            //generate query for parent data set ///////////////////////////////////////////////////////////////////
             var sqlSelect = "";
-            var sql = new StringBuilder("WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ? 
+            var sql = new StringBuilder("WHERE " + (userId > 0 && dataset.userdata && dataset.userdata ?
                 "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "' \n");
-
-            var key = "dataset-" + datasetId.ToString();
-            var keyId = datasetId.ToString();
-            if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
-            {
-                for (var x = 0; x < filters[key].Count; x++)
-                {
-                    //generate root filter group sql
-                    var group = filters[key][x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns, request.User.UserId);
-                    if (groupSql != "")
-                    {
-                        sql.Append(" AND " + groupSql);
-                    }
-                }
-            }
-            if (sort != null && sort.ContainsKey(key) && sort[key].Count > 0)
-            {
-                sql.Append("\nORDER BY "); 
-                for (var x = 0; x < sort[key].Count; x++)
-                {
-                    //generate order by sql
-                    var orderby = sort[key][x];
-                    sql.Append("d.[" + orderby.Column + "]" +
-                        (orderby.Direction == Saber.Vendor.DataSource.OrderByDirection.Ascending ? " ASC" : " DESC") +
-                        (x < sort[key].Count - 1 ? ", \n" : "\n"));
-                }
-            }
-            else
-            {
-                sql.Append("\nORDER BY d.id");
-            }
-            var parentPos = positions != null && positions.ContainsKey(key) ? positions[key] :
-                new Saber.Vendor.DataSource.PositionSettings() { Start = 1, Length = 10 };
-            if (parentPos.Start > 0)
-            {
-                sql.Append("\nOFFSET " + (parentPos.Start - 1) + " ROWS FETCH NEXT " + parentPos.Length + " ROWS ONLY");
-            }
-            sql.Append("\n\n\n");
-            datasets.Add(dataset);
-
-            //TODO: Return all records from tmpTable, then get list of IDs from list component data
-            //where lists are single-selection or multi-selection lists before generating
-            //relationship queries so that we can get a very specific list of results from relationship tables
             var relationshipIds = new Dictionary<string, List<string>>();
             var selectLists = datasource.Relationships.Where(a => a.Type == Saber.Vendor.DataSource.RelationshipType.SingleSelection || a.Type == Saber.Vendor.DataSource.RelationshipType.MultiSelection);
             if (selectLists.Count() > 0)
             {
+                ///////////////////////////////////////////////////////////////////////////////////////////////
                 //get first result set so that we can collect a list of IDs to get for our relationship tables
                 try
                 {
@@ -220,12 +178,55 @@ LEFT JOIN Users u ON u.userId=d.userId
                     throw new Exception(ex.Message + "\n\n" + sqlSelect + sql.ToString() + "\n\n", ex);
                 }
             }
+
+            //generate query for parent data set /////////////////////////////////////////////////////////////////////
             sqlSelect = "SELECT u.name AS username, " +
                 (userEmail ? "u.email AS useremail" : "'' AS useremail") + @", d.*
 INTO " + tmpTable + @"
 FROM [DataSet_" + dataset.tableName + @"] d
 LEFT JOIN Users u ON u.userId=d.userId
 ";
+
+            var key = "dataset-" + datasetId.ToString();
+            var keyId = datasetId.ToString();
+            if (filters != null && filters.ContainsKey(key) && filters[key].Count > 0)
+            {
+                for (var x = 0; x < filters[key].Count; x++)
+                {
+                    //generate root filter group sql
+                    var group = filters[key][x];
+                    var groupSql = GetFilterGroupSql(group, info, datasource, dataset, request);
+                    if (groupSql != "")
+                    {
+                        sql.Append(" AND " + groupSql);
+                    }
+                }
+            }
+            if (sort != null && sort.ContainsKey(key) && sort[key].Count > 0)
+            {
+                sql.Append("\nORDER BY ");
+                for (var x = 0; x < sort[key].Count; x++)
+                {
+                    //generate order by sql
+                    var orderby = sort[key][x];
+                    sql.Append("d.[" + orderby.Column + "]" +
+                        (orderby.Direction == Saber.Vendor.DataSource.OrderByDirection.Ascending ? " ASC" : " DESC") +
+                        (x < sort[key].Count - 1 ? ", \n" : "\n"));
+                }
+            }
+            else
+            {
+                sql.Append("\nORDER BY d.id");
+            }
+            var parentPos = positions != null && positions.ContainsKey(key) ? positions[key] :
+                new Saber.Vendor.DataSource.PositionSettings() { Start = 1, Length = 10 };
+            if (parentPos.Start > 0)
+            {
+                sql.Append("\nOFFSET " + (parentPos.Start - 1) + " ROWS FETCH NEXT " + parentPos.Length + " ROWS ONLY");
+            }
+            sql.Append("\n\n\n");
+            datasets.Add(dataset);
+
             sql.Append("SELECT * FROM " + tmpTable + "\n\n\n");
 
             foreach (var child in datasource.Relationships.Where(a => a.Key == keyId))
@@ -239,7 +240,7 @@ LEFT JOIN Users u ON u.userId=d.userId
                     var childsource = Saber.Vendors.DataSets.Cache.DataSources[childId];
                     sql.Append(@"SELECT u.name AS username, '' AS useremail, d.*
 FROM [DataSet_" + dataset.tableName + @"] d
-LEFT JOIN Users u ON u.userId=d.userId
+LEFT JOIN Users u ON u.userId=d.userId 
 WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") + " d.lang='" + lang + "'"); 
 
                     key = "dataset-" + childId.ToString();
@@ -262,7 +263,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             {
                                 //generate root filter group sql
                                 var group = filters[key][x];
-                                var groupSql = GetFilterGroupSql(group, childsource.Columns, request.User.UserId);
+                                var groupSql = GetFilterGroupSql(group, info, datasource, dataset, request);
                                 if (!string.IsNullOrEmpty(groupSql))
                                 {
                                     sql.Append(" AND " + groupSql);
@@ -350,6 +351,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources[datasetId];
             if (datasource == null) { return 0; }
+            var info = Vendors.DataSources.FirstOrDefault(a => a.Key == "dataset-" + datasource.Key);
             var dataset = Saber.Vendors.DataSets.Cache.DataSets[datasetId];
             if (dataset == null) { return 0; }
 
@@ -365,7 +367,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns, request.User.UserId);
+                    var groupSql = GetFilterGroupSql(group, info, datasource, dataset, request);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -397,6 +399,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
         {
             var datasource = Saber.Vendors.DataSets.Cache.DataSources[datasetId];
             if (datasource == null) { return null; }
+            var info = Vendors.DataSources.FirstOrDefault(a => a.Key == "dataset-" + datasource.Key);
             var dataset = Saber.Vendors.DataSets.Cache.DataSets[datasetId];
             if (dataset == null) { return null; }
             var datasets = new List<Models.DataSet>();
@@ -418,7 +421,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 {
                     //generate root filter group sql
                     var group = filters[key][x];
-                    var groupSql = GetFilterGroupSql(group, datasource.Columns, request.User.UserId);
+                    var groupSql = GetFilterGroupSql(group, info, datasource, dataset, request);
                     if (groupSql != "")
                     {
                         sql.Append(" AND " + groupSql);
@@ -462,24 +465,24 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
             }
             return results;
         }
-        
-        private static string GetFilterGroupSql(Saber.Vendor.DataSource.FilterGroup group, Saber.Vendor.DataSource.Column[] columns, int userId)
+
+        private static string GetFilterGroupSql(Saber.Vendor.DataSource.FilterGroup group, DataSourceInfo info, Saber.Vendor.DataSource datasource, Models.DataSet dataset, IRequest request)
         {
             var sql = new StringBuilder();
             if (group.Elements != null && group.Elements.Count > 0)
             {
+                var userId = request.User.UserId;
+                var columns = datasource.Columns;
                 for (var x = 0; x < group.Elements.Count; x++)
                 {
                     var element = group.Elements[x];
+                    if (element.Value == "#single-selection" || element.Value == "#multi-selection") { continue; }
                     var col = element.Column;
                     var colparts = col.Split(".");
-                    if(colparts.Length > 1)
-                    {
-                        return "";
-                    }
+                    if(colparts.Length == 2) { col = colparts[1]; }
+
+                    //get column info
                     var column = columns.Where(a => a.Name == col).FirstOrDefault();
-                    var appended = false;
-                    if (element.Value == "#single-selection" || element.Value == "#multi-selection") { continue; }
                     if (col == "id")
                     {
                         column = new Saber.Vendor.DataSource.Column()
@@ -499,8 +502,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                         {
                             case "{{userid}}":
                                 //replace value with current user ID
-                                sql.Append("d.[userId] = " + userId + "\n");
-                                appended = true;
+                                column.Id = "{{userId}}";
                                 break;
                         }
                     }
@@ -528,74 +530,43 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                             DataType = Saber.Vendor.DataSource.DataType.DateTime
                         };
                     }
-                    if (column == null || appended == true) { continue; }
-                    var colname = "d.[" + column.Name + "]";
-                    switch (column.DataType)
+                    if(column == null) { continue; }
+
+                    if (colparts.Length > 1)
                     {
-                        case Saber.Vendor.DataSource.DataType.Text:
-                            switch (element.Match)
-                            {
-                                case Saber.Vendor.DataSource.FilterMatchType.StartsWith:
-                                    sql.Append(colname + " LIKE '" + element.Value.Replace("'", "''") + "%'\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.EndsWith:
-                                    sql.Append(colname + " LIKE '%" + element.Value.Replace("'", "''") + "'\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.Contains:
-                                    sql.Append(colname + " LIKE '%" + element.Value.Replace("'", "''") + "%'\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.Equals:
-                                    sql.Append(colname + " = '" + element.Value.Replace("'", "''") + "'\n");
-                                    break;
-                            }
-                            break;
-                        case Saber.Vendor.DataSource.DataType.Number:
-                            switch (element.Match)
-                            {
-                                case Saber.Vendor.DataSource.FilterMatchType.Equals:
-                                    sql.Append(colname + " = " + element.Value + "\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.GreaterThan:
-                                    sql.Append(colname + " > " + element.Value + "\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.GreaterEqualTo:
-                                    sql.Append(colname + " >= " + element.Value + "\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.LessThan:
-                                    sql.Append(colname + " < " + element.Value + "\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.LessThanEqualTo:
-                                    sql.Append(colname + " <= " + element.Value + "\n");
-                                    break;
-                            }
-                            break;
-                        case Saber.Vendor.DataSource.DataType.Boolean:
-                            var boolval = element.Value == "1" || element.Value.ToLower() == "true";
-                            sql.Append(colname + " = " + boolval + "\n");
-                            break;
-                        case Saber.Vendor.DataSource.DataType.DateTime:
-                            var datetime = DateTime.Parse(element.Value);
-                            var dateparts = "DATETIMEFROMPARTS(" + datetime.Year + ", " + datetime.Month + ", " + datetime.Day + "," +
-                                datetime.Hour + ", " + datetime.Minute + ", " + datetime.Second + ", " + datetime.Millisecond + ")";
-                            switch (element.Match)
-                            {
-                                case Saber.Vendor.DataSource.FilterMatchType.Equals:
-                                    sql.Append(colname + " = " + dateparts + "\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.GreaterThan:
-                                    sql.Append(colname + " > " + dateparts + "\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.GreaterEqualTo:
-                                    sql.Append(colname + " >= " + dateparts + "\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.LessThan:
-                                    sql.Append(colname + " < " + dateparts + "\n");
-                                    break;
-                                case Saber.Vendor.DataSource.FilterMatchType.LessThanEqualTo:
-                                    sql.Append(colname + " <= " + dateparts + "\n");
-                                    break;
-                            }
-                            break;
+                        ////////////////////////////////////////////////////////////////////////////////////////
+                        /// filter columns from child table
+                        var sub = datasource.Relationships.FirstOrDefault(a => a.Child.Key == colparts[0]);
+                        if(sub == null) { continue; }
+                        var colname = "c.[" + column.Name + "]";
+                        if(sub.Type == Saber.Vendor.DataSource.RelationshipType.RelatedList)
+                        {
+                            sql.Append("EXISTS(SELECT * FROM " + "[DataSet_" + sub.Child.Name + "] c WHERE " +
+                                "c.[" + sub.ChildColumn + "] = d.[Id] AND " + 
+                                GetFilterGroupColumnSql(request, column, colname, element) + ")");
+                        }else if(sub.Type == Saber.Vendor.DataSource.RelationshipType.SingleSelection ||
+                            sub.Type == Saber.Vendor.DataSource.RelationshipType.MultiSelection)
+                        {
+
+                            sql.Append("EXISTS(SELECT * FROM " + "[DataSet_" + sub.Child.Name + "] c WHERE " +
+                                "EXISTS(SELECT * FROM STRING_SPLIT(dbo.SUBSTRING_INDEX(d.[" + sub.ListComponent + "], 'selected=', -1), ',') s " +
+                                "WHERE s.value = CAST(c.[Id] AS varchar(10))" +
+                                ") AND " +
+                                GetFilterGroupColumnSql(request, column, colname, element) + ")");
+                        }
+                    }
+                    else
+                    {
+                        ////////////////////////////////////////////////////////////////////////////////////////
+                        /// filter columns from table
+                        if (column.Id == "{{userId}}")
+                        {
+                            sql.Append("d.[userId] = " + userId + "\n");
+                            continue; 
+                        }
+                        var colname = "d.[" + column.Name + "]";
+                        //get SQL string for column
+                        sql.Append(GetFilterGroupColumnSql(request, column, colname, element));
                     }
                     if (x < group.Elements.Count - 1)
                     {
@@ -608,7 +579,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 foreach (var sub in group.Groups)
                 {
                     sql.Append(group.Match == Saber.Vendor.DataSource.GroupMatchType.All ? " AND " : " OR ");
-                    sql.Append(GetFilterGroupSql(sub, columns, userId));
+                    sql.Append(GetFilterGroupSql(sub, info, datasource, dataset, request));
                 }
             }
             if (sql.Length > 0)
@@ -616,6 +587,86 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                 return "( \n" + sql.ToString() + ")\n";
             }
             return "";
+        }
+
+        private static string GetFilterGroupColumnSql(IRequest request, Saber.Vendor.DataSource.Column column, string columnName, Saber.Vendor.DataSource.FilterElement element)
+        {
+            var sql = new StringBuilder();
+            switch (column.DataType)
+            {
+                case Saber.Vendor.DataSource.DataType.Text:
+                    switch (element.Match)
+                    {
+                        case Saber.Vendor.DataSource.FilterMatchType.StartsWith:
+                            sql.Append(columnName + " LIKE '" + element.Value.Replace("'", "''") + "%'\n");
+                            break;
+                        case Saber.Vendor.DataSource.FilterMatchType.EndsWith:
+                            sql.Append(columnName + " LIKE '%" + element.Value.Replace("'", "''") + "'\n");
+                            break;
+                        case Saber.Vendor.DataSource.FilterMatchType.Contains:
+                            sql.Append(columnName + " LIKE '%" + element.Value.Replace("'", "''") + "%'\n");
+                            break;
+                        case Saber.Vendor.DataSource.FilterMatchType.Equals:
+                            sql.Append(columnName + " = '" + element.Value.Replace("'", "''") + "'\n");
+                            break;
+                    }
+                    break;
+                case Saber.Vendor.DataSource.DataType.Number:
+                    if(column.Id == "{{userId}}")
+                    {
+                        sql.Append(columnName + " = " + request.User.UserId + "\n");
+                    }
+                    else
+                    {
+                        switch (element.Match)
+                        {
+                            case Saber.Vendor.DataSource.FilterMatchType.Equals:
+                                sql.Append(columnName + " = " + element.Value + "\n");
+                                break;
+                            case Saber.Vendor.DataSource.FilterMatchType.GreaterThan:
+                                sql.Append(columnName + " > " + element.Value + "\n");
+                                break;
+                            case Saber.Vendor.DataSource.FilterMatchType.GreaterEqualTo:
+                                sql.Append(columnName + " >= " + element.Value + "\n");
+                                break;
+                            case Saber.Vendor.DataSource.FilterMatchType.LessThan:
+                                sql.Append(columnName + " < " + element.Value + "\n");
+                                break;
+                            case Saber.Vendor.DataSource.FilterMatchType.LessThanEqualTo:
+                                sql.Append(columnName + " <= " + element.Value + "\n");
+                                break;
+                        }
+                    }
+                    break;
+                case Saber.Vendor.DataSource.DataType.Boolean:
+                    var boolval = element.Value == "1" || element.Value.ToLower() == "true";
+                    sql.Append(columnName + " = " + boolval + "\n");
+                    break;
+                case Saber.Vendor.DataSource.DataType.DateTime:
+                    var datetime = DateTime.Parse(element.Value);
+                    var dateparts = "DATETIMEFROMPARTS(" + datetime.Year + ", " + datetime.Month + ", " + datetime.Day + "," +
+                        datetime.Hour + ", " + datetime.Minute + ", " + datetime.Second + ", " + datetime.Millisecond + ")";
+                    switch (element.Match)
+                    {
+                        case Saber.Vendor.DataSource.FilterMatchType.Equals:
+                            sql.Append(columnName + " = " + dateparts + "\n");
+                            break;
+                        case Saber.Vendor.DataSource.FilterMatchType.GreaterThan:
+                            sql.Append(columnName + " > " + dateparts + "\n");
+                            break;
+                        case Saber.Vendor.DataSource.FilterMatchType.GreaterEqualTo:
+                            sql.Append(columnName + " >= " + dateparts + "\n");
+                            break;
+                        case Saber.Vendor.DataSource.FilterMatchType.LessThan:
+                            sql.Append(columnName + " < " + dateparts + "\n");
+                            break;
+                        case Saber.Vendor.DataSource.FilterMatchType.LessThanEqualTo:
+                            sql.Append(columnName + " <= " + dateparts + "\n");
+                            break;
+                    }
+                    break;
+            }
+            return sql.ToString();
         }
 
         #endregion
