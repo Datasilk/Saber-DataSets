@@ -549,8 +549,9 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                         {
 
                             sql.Append("EXISTS(SELECT * FROM " + "[DataSet_" + sub.Child.Name + "] c WHERE " +
-                                "EXISTS(SELECT * FROM STRING_SPLIT(dbo.SUBSTRING_INDEX(d.[" + sub.ListComponent + "], 'selected=', -1), ',') s " +
-                                "WHERE s.value = CAST(c.[Id] AS varchar(10))" +
+                                "EXISTS(" + 
+                                    "SELECT * FROM STRING_SPLIT(dbo.SUBSTRING_INDEX(d.[" + sub.ListComponent + "], 'selected=', -1), ',') s " +
+                                    "WHERE s.value = CAST(c.[Id] AS varchar(16))" +
                                 ") AND " +
                                 GetFilterGroupColumnSql(request, column, colname, element) + ")");
                         }
@@ -558,7 +559,7 @@ WHERE " + (userId > 0 && dataset.userdata ? "d.userId=" + userId + " AND" : "") 
                     else
                     {
                         ////////////////////////////////////////////////////////////////////////////////////////
-                        /// filter columns from table
+                        /// filter columns from parent table
                         if (column.Id == "{{userId}}")
                         {
                             sql.Append("d.[userId] = " + userId + "\n");

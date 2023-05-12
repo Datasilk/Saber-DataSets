@@ -215,7 +215,7 @@ S.editor.datasets = {
             if (!lang) { lang = 'en'; }
             var search = $('.tab-toolbar .search-dataset').val(); 
             if (!start) { start = 1; }
-            if (!length) { length = 50; }
+            if (!length) { length = 20; }
             var filters = [];
             var sort = [];
 

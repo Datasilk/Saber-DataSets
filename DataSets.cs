@@ -230,6 +230,7 @@ namespace Saber.Vendors.DataSets
         {
             if (IsPublicApiRequest || !CheckSecurity("view-datasets")) { return AccessDenied(); }
             if (!IsOwner(datasetId, out var dataset)) { return AccessDenied("You do not have access to this dataset"); }
+            if (string.IsNullOrEmpty(lang)) { lang = "en"; }
             var view = new View("/Vendors/DataSets/Views/dataset.html");
             var viewMenu = new View("/Vendors/DataSets/Views/record-menu.html");
             var header = new StringBuilder();
@@ -269,18 +270,75 @@ namespace Saber.Vendors.DataSets
             var data = Query.DataSets.GetRecords(this, datasetId, start, length, lang, User.UserId, filters, sort);
             if (data.Count > 0)
             {
-                //generate table header
-
+                //generate paging information
                 var i = 0;
+                var total = Query.DataSets.GetRecordCount(this, datasetId, lang, User.UserId, filters);
+                var end = start + length > total ? total : start + length - 1;
+                var pagingView = new View("/Vendors/DataSets/Views/paging.html");
+                var pageItemView = new View("/Vendors/DataSets/Views/page-item.html");
+                pagingView["total"] = total.ToString();
+                pagingView["start"] = start.ToString();
+                pagingView["end"] = end.ToString();
+                var pagingItems = new StringBuilder();
+                var pageLink = "S.editor.datasets.records.show(" + datasetId + ", '" + dataset.partialview + "', '" + dataset.label + "', '" + lang + "', #start#, " + length + ")"; ;
+                if (start > 1)
+                {
+                    pagingView.Show("previous");
+                    pagingView["prev-click"] = pageLink.Replace("#start#", (start - length).ToString());
+                    for(var x = (start - (length * 3)) < 1 ? 1 : start - (length * 3); x < start; x+= length)
+                    {
+                        i++;
+                        pageItemView.Clear();
+                        pageItemView.Show("not-selected");
+                        pageItemView["page-num"] = ((x / length) + 1).ToString();
+                        pageItemView["onclick"] = pageLink.Replace("#start#", x.ToString());
+                        pagingItems.Append(pageItemView.Render());
+                    }
+                }
+                else
+                {
+                    pagingView.Show("no-previous");
+                }
+                if (start + length < total)
+                {
+                    pagingView.Show("next");
+                    pagingView["next-click"] = pageLink.Replace("#start#", (start + length).ToString());
+                }
+                else
+                {
+                    pagingView.Show("no-next");
+                }
+                for (var x = start; x < total; x += length)
+                {
+                    i++;
+                    if(i > 6) { break; }
+                    pageItemView.Clear();
+                    if(x == start) { pageItemView.Show("selected"); } else { pageItemView.Show("not-selected"); }
+                    pageItemView["page-num"] = ((x / length) + 1).ToString();
+                    pageItemView["onclick"] = pageLink.Replace("#start#", x.ToString());
+                    pagingItems.Append(pageItemView.Render());
+                }
+                pagingView["pages"] = pagingItems.ToString();
+                view["paging"] = pagingView.Render();
+
+                //generate table header
+                i = 0;
+                var colDates = new StringBuilder();
                 foreach (var item in data.First())
                 {
                     //load dataset column names in header row
                     i++;
-                    if( (i <= 4 && i != 3) || (i == 5 && !(dataset.userdata || dataset.userId.HasValue))) 
+                    switch (i)
                     {
-                        //skip username, useremail, lang, & userId columns
-                        continue; 
-                    }else if(i == 5 && (dataset.userdata || dataset.userId.HasValue))
+                        case 1://username
+                        case 2://useremail
+                        case 4://lang
+                            continue;
+                        case 5://userId
+                            if(!dataset.userdata && !dataset.userId.HasValue) { continue; }
+                            break;
+                    }
+                    if (i == 5)
                     {
                         header.Append("<td class=\"owner\"><b>Owner</b></td>");
                     }
@@ -288,18 +346,24 @@ namespace Saber.Vendors.DataSets
                     {
                         //do not show any list data
                     }
-                    else
+                    else if (i == 6 || i == 7)
                     {
+                        //move dates to end of list
+                        colDates.Append("<td>" + item.Key + "</td>");
+                    }
+                    else 
+                    { 
                         header.Append("<td>" + item.Key + "</td>");
                     }
                 }
-                view["table-head"] = header.ToString();
+                view["table-head"] = header.ToString() + colDates.ToString();
 
                 //generate table rows
                 foreach (var item in data)
                 {
                     //load column values for each dataset record
                     viewMenu.Clear();
+                    colDates = new StringBuilder();
                     var recordId = (int)item["Id"];
                     viewMenu["recordId"] = recordId.ToString();
                     rows.Append("<tr data-id=\"" + recordId + "\">");
@@ -308,11 +372,17 @@ namespace Saber.Vendors.DataSets
                     foreach (var col in item)
                     {
                         i++;
-                        if ((i <= 4 && i != 3) || (i == 5 && !(dataset.userdata || dataset.userId.HasValue))) {
-                            //skip username, recordId, & lang columns
-                            continue; 
-                        } 
-                        if(i == 5 && (dataset.userdata || dataset.userId.HasValue))
+                        switch (i)
+                        {
+                            case 1://username
+                            case 2://useremail
+                            case 4://lang
+                                continue;
+                            case 5://userId
+                                if (!dataset.userdata && !dataset.userId.HasValue) { continue; }
+                                break;
+                        }
+                        if (i == 5)
                         {
                             //display user information to Admin
                             rows.Append("<td class=\"no-details\"><a href=\"javascript:\" onclick=\"S.editor.datasets.viewOwner(event, " + col.Value + ")\">" + username + "</a></td>");
@@ -321,12 +391,18 @@ namespace Saber.Vendors.DataSets
                         {
                             //do not show any list data
                         }
+                        else if (i == 6 || i == 7)
+                        {
+                            //move dates to end of list
+                            colDates.Append("<td>" + ConvertFieldToString(col.Value) + "</td>");
+                        }
                         else
                         {
                             //display field value
                             rows.Append("<td>" + ConvertFieldToString(col.Value) + "</td>");
                         }
                     }
+                    rows.Append(colDates.ToString());
                     rows.Append(viewMenu.Render() + "</tr>");
                 }
                 view["rows"] = rows.ToString();

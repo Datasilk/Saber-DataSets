@@ -1,5 +1,5 @@
 ﻿<div class="row pad-top">
-    <div class="row pad-bottom">
+    <div class="row">
         {{has-relationships}}
             <div class="col pad">
                 <b>Relationships:</b>
@@ -20,10 +20,18 @@
         {{/has-userdata}}
     </div>
     {{has-rows}}
-    <table class="spreadsheet records">
-        <thead><tr>{{table-head}}<td></td></tr></thead>
-        <tbody>{{rows}}</tbody>
-    </table>
+    <div class="row paging pad-bottom">
+        {{paging}}
+    </div>
+    <div class="row pad-bottom">
+        <table class="spreadsheet records">
+            <thead><tr>{{table-head}}<td></td></tr></thead>
+            <tbody>{{rows}}</tbody>
+        </table>
+    </div>
+    <div class="row paging pad-bottom">
+        {{paging}}
+    </div>
     {{/has-rows}}
     {{empty}}
         <div class="faded">No records exist yet for this data set.</div>
