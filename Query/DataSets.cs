@@ -151,11 +151,11 @@ LEFT JOIN Users u ON u.userId=d.userId
                                             {
                                                 if (!relationshipIds.ContainsKey(list.Child.Key))
                                                 {
-                                                    relationshipIds.Add(list.Child.Key, new List<string>(part.Split(",", StringSplitOptions.RemoveEmptyEntries & StringSplitOptions.TrimEntries)));
+                                                    relationshipIds.Add(list.Child.Key, new List<string>(part.Split(",", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
                                                 }
                                                 else
                                                 {
-                                                    var add = part.Split(",", StringSplitOptions.RemoveEmptyEntries & StringSplitOptions.TrimEntries).Where(a => !relationshipIds[list.Child.Key].Contains(a));
+                                                    var add = part.Split(",", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(a => !relationshipIds[list.Child.Key].Contains(a));
                                                     if (add.Count() > 0)
                                                     {
                                                         relationshipIds[list.Child.Key].AddRange(add);
